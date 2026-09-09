@@ -7,7 +7,8 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>SWAMP FOG CASHIER v29 REALTIME</title>
+<meta name="fog-cashier-version" content="31">
+<title>SWAMP FOG CASHIER v31 REALTIME</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#efefec;color:#111;
@@ -17,6 +18,7 @@ button{cursor:pointer}
 .app{height:100dvh;display:grid;grid-template-rows:56px 1fr 60px}
 .top{display:flex;align-items:center;gap:8px;padding:0 10px;background:#fff;border-bottom:1px solid #d5d5cf}
 .brand{font-weight:900;letter-spacing:.04em;white-space:nowrap;font-size:13px}
+.app-ver{font-size:9px;color:#777;font-weight:800;letter-spacing:0;margin-left:4px}
 .tabs{display:flex;gap:5px;flex:1;justify-content:center}
 .tab{border:1px solid #c9c9c3;background:#fff;padding:9px 18px;border-radius:10px;font-weight:850;color:#555}
 .tab.active{background:#111;color:#fff;border-color:#111}
@@ -383,7 +385,7 @@ input,select{width:100%;border:1px solid #bdbdb7;background:#fff;border-radius:8
 </div>
 <div class="app">
 <header class="top">
-  <div class="brand">SWAMP FOG CASHIER</div>
+  <div class="brand">SWAMP FOG CASHIER <span class="app-ver">Ver.31</span></div>
   <div class="tabs">
     <button class="tab active" data-screen="board">卓表</button>
     <button class="tab" data-screen="schedule">予定表</button>
@@ -469,6 +471,7 @@ let moveMode=null;
 const SUPABASE_URL='https://sffzcooyulzjrxkxvcrx.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_3cmJ6BW-qBh6N3ThfwebJA_iw9tR_cP';
 const CASHIER_STATE_ID="main";
+const APP_VERSION="31";
 const SYNC_EMAIL_KEY="fogCashierSyncEmail";
 
 const sb=window.supabase.createClient(
@@ -495,6 +498,11 @@ let remoteSaveInFlight=false;
 let queuedRemoteRow=null;
 let currentAuthEmail="";
 let lastSyncError="";
+let realtimeSubscribed=false;
+let fallbackPollTimer=null;
+let realtimeRetryTimer=null;
+const FALLBACK_POLL_MS=3000;
+const REALTIME_RETRY_MS=30000;
 
 
 function loadDB(){
@@ -1020,6 +1028,9 @@ async function cashierLogin(){
 }
 async function cashierLogout(){
   syncReady=false;
+  realtimeSubscribed=false;
+  stopFallbackPolling();
+  clearTimeout(realtimeRetryTimer);
   if(realtimeChannel){
     try{await sb.removeChannel(realtimeChannel)}catch(e){}
     realtimeChannel=null
@@ -1042,10 +1053,12 @@ async function openSyncPanel(){
 
   modal(`<h3>リアルタイム共有</h3>
     <div style="font-size:12px;line-height:1.8">
+      <b>Ver.：</b>${APP_VERSION}<br>
       <b>状態：</b>${syncReady?"接続中":"接続待ち"}<br>
       <b>ログイン：</b>${esc(currentAuthEmail||data.session.user?.email||"")}<br>
-      <b>Revision：</b>${serverRevision??"—"}
-      ${lastSyncError?`<br><b style="color:#b00020">エラー：</b><span style="color:#b00020">${esc(lastSyncError)}</span>`:""}
+      <b>Revision：</b>${serverRevision??"—"}<br>
+      <b>方式：</b>${realtimeSubscribed?"Realtime":"自動同期（予備回線）"}
+      ${lastSyncError?`<br><b style="color:#b00020">詳細：</b><span style="color:#b00020">${esc(lastSyncError)}</span>`:""}
     </div>
     <div class="actions" style="margin-top:12px">
       ${initButton}
@@ -1243,6 +1256,7 @@ async function flushRemoteSave(){
 
         queuedRemoteRow=null;
         setSyncStatus("同期","ok");
+        if(!realtimeSubscribed)startFallbackPolling();
         if(localDirty)scheduleRemoteSave();
         return
       }
@@ -1269,6 +1283,7 @@ async function flushRemoteSave(){
         localDirty=false;
         queuedRemoteRow=null;
         setSyncStatus("同期","ok");
+        if(!realtimeSubscribed)startFallbackPolling();
         return
       }
     }
@@ -1307,32 +1322,113 @@ function handleRealtimeRow(row){
     setSyncStatus("同期","ok")
   }
 }
+async function fetchRemoteRevision(){
+  const {data,error}=await sb
+    .from("fog_cashier_state")
+    .select("revision")
+    .eq("id",CASHIER_STATE_ID)
+    .single();
+  if(error)throw error;
+  return Number(data.revision||0)
+}
+async function fallbackPollOnce(){
+  if(!syncReady||document.hidden||localDirty||remoteSaveInFlight)return;
+  try{
+    const rev=await fetchRemoteRevision();
+    if(serverRevision===null||rev>serverRevision){
+      const row=await fetchRemoteState();
+      handleRealtimeRow(row)
+    }
+    if(!realtimeSubscribed)setSyncStatus("同期","ok")
+  }catch(error){
+    console.error("fallback poll",error);
+    lastSyncError=syncErrorText(error);
+    setSyncStatus("通信待ち","error")
+  }
+}
+function startFallbackPolling(){
+  stopFallbackPolling();
+  fallbackPollTimer=setInterval(fallbackPollOnce,FALLBACK_POLL_MS);
+  fallbackPollOnce()
+}
+function stopFallbackPolling(){
+  if(fallbackPollTimer){
+    clearInterval(fallbackPollTimer);
+    fallbackPollTimer=null
+  }
+}
+function scheduleRealtimeRetry(){
+  clearTimeout(realtimeRetryTimer);
+  if(realtimeSubscribed||!syncReady)return;
+  realtimeRetryTimer=setTimeout(async()=>{
+    if(!syncReady||realtimeSubscribed)return;
+    try{
+      await subscribeRealtime();
+    }catch(e){}
+    if(!realtimeSubscribed)scheduleRealtimeRetry()
+  },REALTIME_RETRY_MS)
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden)return;
+  if(syncReady)fallbackPollOnce()
+});
+
 async function subscribeRealtime(){
   if(realtimeChannel){
     try{await sb.removeChannel(realtimeChannel)}catch(e){}
     realtimeChannel=null
   }
 
-  realtimeChannel=sb
-    .channel("fog-cashier-main")
-    .on(
-      "postgres_changes",
-      {
-        event:"UPDATE",
-        schema:"public",
-        table:"fog_cashier_state",
-        filter:`id=eq.${CASHIER_STATE_ID}`
-      },
-      payload=>handleRealtimeRow(payload.new)
-    )
-    .subscribe((status,error)=>{
-      if(status==="SUBSCRIBED"){
-        if(syncReady)setSyncStatus("同期","ok")
-      }else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"){
-        console.error("realtime channel",status,error);
-        setSyncStatus("通信エラー","error")
-      }
-    })
+  realtimeSubscribed=false;
+
+  return await new Promise(resolve=>{
+    let settled=false;
+    const finish=ok=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timeout);
+      resolve(ok)
+    };
+
+    const timeout=setTimeout(()=>{
+      realtimeSubscribed=false;
+      startFallbackPolling();
+      scheduleRealtimeRetry();
+      finish(false)
+    },7000);
+
+    realtimeChannel=sb
+      .channel("fog-cashier-main")
+      .on(
+        "postgres_changes",
+        {
+          event:"UPDATE",
+          schema:"public",
+          table:"fog_cashier_state",
+          filter:`id=eq.${CASHIER_STATE_ID}`
+        },
+        payload=>handleRealtimeRow(payload.new)
+      )
+      .subscribe((status,error)=>{
+        if(status==="SUBSCRIBED"){
+          realtimeSubscribed=true;
+          lastSyncError="";
+          stopFallbackPolling();
+          if(syncReady)setSyncStatus("同期","ok");
+          finish(true)
+        }else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED"){
+          console.error("realtime channel",status,error);
+          realtimeSubscribed=false;
+          lastSyncError=error?syncErrorText(error):status;
+          if(syncReady){
+            startFallbackPolling();
+            scheduleRealtimeRetry();
+            setSyncStatus("同期","ok")
+          }
+          finish(false)
+        }
+      })
+  })
 }
 async function connectRealtimeSync(){
   if(syncConnecting)return;
@@ -1357,8 +1453,9 @@ async function connectRealtimeSync(){
     }
     hideSyncLogin();
 
+    // REST database access is the source of truth.
+    // Once this succeeds, the device is considered connected.
     const row=await fetchRemoteState();
-    await subscribeRealtime();
 
     serverRevision=Number(row.revision||0);
     serverBase=deepClone(row.payload);
@@ -1374,10 +1471,20 @@ async function connectRealtimeSync(){
     localDirty=false;
     syncReady=true;
     lastSyncError="";
-    setSyncStatus("同期","ok")
+    setSyncStatus("同期","ok");
+
+    // Try websocket Realtime. If it fails on this device/network,
+    // keep the app online using a tiny revision-only poll every 3 sec.
+    const rtOK=await subscribeRealtime();
+    if(!rtOK){
+      startFallbackPolling();
+      scheduleRealtimeRetry();
+      setSyncStatus("同期","ok")
+    }
   }catch(error){
     console.error("connect realtime",error);
     syncReady=false;
+    realtimeSubscribed=false;
     lastSyncError=syncErrorText(error);
     setSyncStatus("接続エラー","error");
     toast("接続エラー："+lastSyncError)
