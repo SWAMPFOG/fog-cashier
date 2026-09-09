@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>SWAMP FOG CASHIER v28 REALTIME</title>
+<title>SWAMP FOG CASHIER v29 REALTIME</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#efefec;color:#111;
@@ -478,7 +478,8 @@ const sb=window.supabase.createClient(
     auth:{
       persistSession:true,
       autoRefreshToken:true,
-      detectSessionInUrl:true
+      detectSessionInUrl:false,
+      storageKey:"fog-cashier-auth-v1"
     }
   }
 );
@@ -493,6 +494,7 @@ let remoteSaveTimer=null;
 let remoteSaveInFlight=false;
 let queuedRemoteRow=null;
 let currentAuthEmail="";
+let lastSyncError="";
 
 
 function loadDB(){
@@ -966,6 +968,17 @@ function setSyncStatus(text,state="busy"){
   el.classList.remove("ok","busy","error");
   el.classList.add(state)
 }
+function syncErrorText(error){
+  if(!error)return "不明なエラー";
+  const parts=[
+    error.message,
+    error.details,
+    error.hint,
+    error.code,
+    error.status
+  ].filter(Boolean);
+  return parts.join(" / ")||String(error)
+}
 function showSyncLogin(){
   const email=localStorage.getItem(SYNC_EMAIL_KEY)||"";
   const input=document.getElementById("syncEmail");
@@ -998,6 +1011,10 @@ async function cashierLogin(){
   currentAuthEmail=data.user?.email||email;
   localStorage.setItem(SYNC_EMAIL_KEY,currentAuthEmail);
   document.getElementById("syncPassword").value="";
+  lastSyncError="";
+  if(data.session?.access_token){
+    await sb.realtime.setAuth(data.session.access_token)
+  }
   hideSyncLogin();
   await connectRealtimeSync()
 }
@@ -1028,6 +1045,7 @@ async function openSyncPanel(){
       <b>状態：</b>${syncReady?"接続中":"接続待ち"}<br>
       <b>ログイン：</b>${esc(currentAuthEmail||data.session.user?.email||"")}<br>
       <b>Revision：</b>${serverRevision??"—"}
+      ${lastSyncError?`<br><b style="color:#b00020">エラー：</b><span style="color:#b00020">${esc(lastSyncError)}</span>`:""}
     </div>
     <div class="actions" style="margin-top:12px">
       ${initButton}
@@ -1322,18 +1340,25 @@ async function connectRealtimeSync(){
   setSyncStatus("接続中","busy");
 
   try{
-    const {data:{session}}=await sb.auth.getSession();
+    const {data:{session},error:sessionError}=await sb.auth.getSession();
+    if(sessionError)throw sessionError;
     if(!session){
       syncReady=false;
       showSyncLogin();
       return
     }
 
-    currentAuthEmail=session.user?.email||"";
+    const {data:userData,error:userError}=await sb.auth.getUser();
+    if(userError)throw userError;
+
+    currentAuthEmail=userData.user?.email||session.user?.email||"";
+    if(session.access_token){
+      await sb.realtime.setAuth(session.access_token)
+    }
     hideSyncLogin();
 
-    await subscribeRealtime();
     const row=await fetchRemoteState();
+    await subscribeRealtime();
 
     serverRevision=Number(row.revision||0);
     serverBase=deepClone(row.payload);
@@ -1348,12 +1373,14 @@ async function connectRealtimeSync(){
     applyRemotePayload(row.payload);
     localDirty=false;
     syncReady=true;
+    lastSyncError="";
     setSyncStatus("同期","ok")
   }catch(error){
     console.error("connect realtime",error);
     syncReady=false;
+    lastSyncError=syncErrorText(error);
     setSyncStatus("接続エラー","error");
-    toast("Supabaseへ接続できませんでした")
+    toast("接続エラー："+lastSyncError)
   }finally{
     syncConnecting=false
   }
@@ -1370,6 +1397,8 @@ async function bootstrapRealtime(){
     await connectRealtimeSync()
   }catch(error){
     console.error("bootstrap realtime",error);
+    lastSyncError=syncErrorText(error);
+    setSyncStatus("接続エラー","error");
     showSyncLogin()
   }
 }
