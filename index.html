@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
-<title>SWAMP FOG CASHIER v9</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>SWAMP FOG CASHIER v11</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#efefec;color:#111;
@@ -24,74 +27,112 @@ button{cursor:pointer}
 
 .board-screen{height:100%;padding:8px;background:#f3f3f0}
 .board-wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.floor{position:relative;height:100%;aspect-ratio:1076/1522;max-width:100%;background:#fff;box-shadow:0 0 0 1px #d6d6d0}
-.floor>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none}
+.floor{
+  position:relative;
+  width:100%;
+  height:auto;
+  max-height:100%;
+  aspect-ratio:1076/1522;
+  background:#fff;
+  box-shadow:0 0 0 1px #d6d6d0;
+}
+.floor>img{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:fill;
+  pointer-events:none;
+  user-select:none;
+}
+@media (orientation:landscape){
+  .floor{
+    width:auto;
+    height:100%;
+    max-width:100%;
+  }
+}
 .hotspot{position:absolute;border:0;background:transparent;padding:0;overflow:hidden}
 .hotspot:active{background:rgba(0,0,0,.05)}
 .overlay{
   position:absolute;
-  left:2px; right:2px; top:20%; bottom:2px;
-  padding:1px 4px;
+  left:2px;
+  right:2px;
+  top:18%;
+  bottom:2px;
+  padding:2px 4px;
   border-radius:2px;
   pointer-events:none;
   overflow:hidden;
 }
-.overlay.occupied,.overlay.check,.overlay.cleaning{background:rgba(255,255,255,.94)}
+.overlay.occupied,.overlay.check,.overlay.cleaning{background:rgba(255,255,255,.96)}
 .ov-cast,.ov-client,.ov-field{
   position:absolute;
-  left:4px; right:4px;
+  left:4px;
+  right:4px;
   max-width:calc(100% - 8px);
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
+  color:#111;
 }
 .ov-cast{
-  top:2px;
-  font-weight:900;
-  font-size:clamp(7px,.72vw,10px);
+  top:1px;
+  font-weight:950;
+  font-size:clamp(10px,1.15vw,16px);
   line-height:1.05;
 }
 .ov-client{
-  top:34%;
-  font-weight:700;
-  font-size:clamp(6px,.66vw,9px);
+  top:29%;
+  font-weight:850;
+  font-size:clamp(9px,1.02vw,14px);
   line-height:1.05;
 }
 .ov-field{
-  top:54%;
+  top:49%;
   color:#16813a;
-  font-weight:900;
-  font-size:clamp(5.5px,.58vw,8px);
+  font-weight:950;
+  font-size:clamp(8px,.92vw,13px);
   line-height:1.05;
 }
 .ov-time{
   position:absolute;
   left:4px;
-  bottom:2px;
-  font-size:clamp(6px,.58vw,8px);
-  color:#555;
+  bottom:22%;
+  font-size:clamp(8px,.88vw,12px);
+  font-weight:850;
+  color:#444;
   line-height:1;
   white-space:nowrap;
 }
 .tags{
   position:absolute;
-  right:3px;
+  left:4px;
+  right:4px;
   bottom:1px;
   display:flex;
-  gap:1px;
+  gap:2px;
   flex-wrap:nowrap;
-  justify-content:flex-end;
-  max-width:58%;
+  align-items:center;
   overflow:hidden;
 }
 .tag{
-  font-size:clamp(4.5px,.43vw,6.5px);
+  font-size:clamp(7px,.75vw,10px);
   line-height:1;
-  padding:1px 2px;
+  padding:2px 4px;
   border-radius:999px;
   border:1px solid rgba(0,0,0,.16);
   white-space:nowrap;
   flex:0 0 auto;
+  font-weight:850;
+}
+.crown{
+  position:absolute;
+  top:0;
+  right:3px;
+  font-size:clamp(15px,1.7vw,24px);
+  line-height:1;
+  z-index:3;
 }
 .t-orange{background:#ffb37e} .t-pink{background:#f59ac9} .t-green{background:#a8e995}
 .t-blue{background:#8fe0e7} .t-purple{background:#b38aeb} .t-yellow{background:#ffe89d}
@@ -224,19 +265,22 @@ function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove("show"),1500)}
 function castById(id){return db.casts.find(x=>x.id===id)}
 function clientById(id){return db.clients.find(x=>x.id===id)}
-function castName(s){return s.castName||castById(s.castId)?.name||"—"}
-function clientName(s){if(s.type==="new")return "ご新規様";if(s.type==="field")return "場内";return s.clientName||clientById(s.clientId)?.name||"—"}
+function castName(s){return (s.castId?castById(s.castId)?.name:"")||s.castName||"—"}
+function clientName(s){if(s.type==="new")return "ご新規様";if(s.type==="field")return "場内";return (s.clientId?clientById(s.clientId)?.name:"")||s.clientName||"—"}
 
 function renderAll(){renderTables();renderSchedule();document.getElementById("undoBtn").disabled=!(db.history?.length)}
 
 
 function fitTableText(){
   document.querySelectorAll(".ov-cast,.ov-client,.ov-field").forEach(el=>{
+    el.style.fontSize="";
     let size=parseFloat(getComputedStyle(el).fontSize);
-    const min=5.5;
-    while(el.scrollWidth>el.clientWidth && size>min){
+    const min=7;
+    let guard=0;
+    while(el.scrollWidth>el.clientWidth && size>min && guard<30){
       size-=0.5;
       el.style.fontSize=size+"px";
+      guard++;
     }
   });
 }
@@ -254,13 +298,17 @@ function renderTables(){
     if(s.classification==="repeat"||s.classification==="first")tags.push([s.classification==="first"?"初回指名":"リピ","t-pink"]);
     if(s.type==="field"||s.companionField)tags.push(["場内","t-green"]);
     if(s.classification==="repeat2")tags.push(["2リピ","t-blue"]);
-    if(s.quick)tags.push(["Q","t-purple"]);if(s.glow)tags.push(["光","t-yellow"]);if(s.gold)tags.push(["G","t-red"]);if(s.black)tags.push(["B","t-gray"]);if(s.crown)tags.push(["👑",""]);
-    ov.innerHTML='<div class="ov-cast">'+esc(castName(s))+'</div><div class="ov-client">'+esc(clientName(s))+'</div>'+
+    if(s.quick)tags.push(["Q","t-purple"]);if(s.glow)tags.push(["光","t-yellow"]);if(s.gold)tags.push(["G","t-red"]);if(s.black)tags.push(["B","t-gray"]);
+    ov.innerHTML=
+      (s.crown?'<div class="crown">👑</div>':'')+
+      '<div class="ov-cast">'+esc(castName(s))+'</div>'+
+      '<div class="ov-client">'+esc(clientName(s))+'</div>'+
       (s.companionField?'<div class="ov-field">場内：'+esc(s.companionFieldCastName||castById(s.companionFieldCastId)?.name||"")+'</div>':'')+
       '<div class="ov-time">'+esc(s.entryTime||"")+'</div>'+
       (tags.length?'<div class="tags">'+tags.map(t=>'<span class="tag '+t[1]+'">'+t[0]+'</span>').join("")+'</div>':"")+
       (s.state==="check"?'<div class="bigx">×</div>':"");
   })
+  requestAnimationFrame(fitTableText);
 }
 
 function renderSchedule(){
@@ -292,7 +340,7 @@ function openMaster(){
     </div>
     <div style="margin-top:14px">
       ${db.casts.length
-        ? db.casts.map(c=>`<div class="reserve"><div class="reserve-main">${esc(c.name)}</div><div class="reserve-actions"><button class="mini primary" onclick="openCastClients('${c.id}')">クライアント一覧</button></div></div>`).join("")
+        ? db.casts.map(c=>`<div class="reserve"><div class="reserve-main">${esc(c.name)}</div><div class="reserve-actions"><button class="mini primary" onclick="openCastClients('${c.id}')">クライアント一覧</button><button class="mini" onclick="openCastEdit('${c.id}')">名前編集</button></div></div>`).join("")
         : '<div class="empty">まずキャストを登録してください</div>'}
     </div>
     <div class="card-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`)
@@ -315,11 +363,107 @@ function openCastClients(castId){
     <div class="actions"><button class="action primary" onclick="openClientAdd('${castId}')">＋新規クライアント登録</button></div>
     <div style="margin-top:14px">
       ${clients.length
-        ? clients.map(c=>`<div class="reserve"><div class="reserve-main">${esc(c.name)}</div><div class="reserve-sub">${c.glow?"光アイスペール ":""}${c.gold?"GOLD ":""}${c.black?"BLACK":""}</div></div>`).join("")
+        ? clients.map(c=>`<div class="reserve"><div class="reserve-main">${esc(c.name)}</div><div class="reserve-sub">${c.glow?"光アイスペール ":""}${c.gold?"GOLD ":""}${c.black?"BLACK":""}</div><div class="reserve-actions"><button class="mini" onclick="openClientEdit('${c.id}')">編集</button></div></div>`).join("")
         : '<div class="empty">クライアント登録なし</div>'}
     </div>
     <div class="card-actions"><button class="btn" onclick="openMaster()">戻る</button><button class="btn" onclick="closeModal()">閉じる</button></div>`)
 }
+
+function openCastEdit(castId){
+  const cast=castById(castId);
+  if(!cast)return;
+  modal(`<h3>キャスト名編集</h3>
+    <div class="field">
+      <label>キャスト名</label>
+      <input id="editCastName" value="${esc(cast.name)}">
+    </div>
+    <div class="card-actions">
+      <button class="btn" onclick="openMaster()">キャンセル</button>
+      <button class="btn primary" onclick="saveCastEdit('${castId}')">保存</button>
+    </div>`)
+}
+function saveCastEdit(castId){
+  const cast=castById(castId);
+  const name=document.getElementById("editCastName").value.trim();
+  if(!cast||!name)return toast("キャスト名を入力してください");
+  snapshot("キャスト名編集");
+  cast.name=name;
+
+  // Keep snapshots/typed references in sync as well.
+  Object.values(db.tables).forEach(s=>{
+    if(s&&s.castId===castId)s.castName=name;
+    if(s&&s.companionFieldCastId===castId)s.companionFieldCastName=name;
+  });
+  db.reservations.forEach(r=>{
+    if(r.castId===castId)r.castName=name;
+  });
+
+  localStorage.setItem(DBKEY,JSON.stringify(db));
+  renderAll();
+  openMaster();
+  toast("キャスト名を修正しました")
+}
+
+function openClientEdit(clientId){
+  const client=clientById(clientId);
+  if(!client)return;
+  const cast=castById(client.castId);
+  modal(`<h3>クライアント編集</h3>
+    <div class="grid">
+      <div class="field full">
+        <label>担当キャスト</label>
+        <div style="padding:10px;border:1px solid #ddd;border-radius:8px;background:#fafaf8;font-weight:800">${esc(cast?.name||"")}</div>
+      </div>
+      <div class="field full">
+        <label>お客様の名前</label>
+        <input id="editClientName" value="${esc(client.name)}">
+      </div>
+      <div class="field full">
+        <label>継続属性</label>
+        <div class="checks">
+          <label class="ck"><input type="checkbox" id="editCGlow" ${client.glow?"checked":""}>光アイスペール</label>
+          <label class="ck"><input type="checkbox" id="editCGold" ${client.gold?"checked":""}>ゴールド</label>
+          <label class="ck"><input type="checkbox" id="editCBlack" ${client.black?"checked":""}>ブラック</label>
+        </div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button class="btn" onclick="openCastClients('${client.castId}')">キャンセル</button>
+      <button class="btn primary" onclick="saveClientEdit('${clientId}')">保存</button>
+    </div>`)
+}
+function saveClientEdit(clientId){
+  const client=clientById(clientId);
+  const name=document.getElementById("editClientName").value.trim();
+  if(!client||!name)return toast("お客様の名前を入力してください");
+
+  snapshot("クライアント編集");
+  client.name=name;
+  client.glow=document.getElementById("editCGlow").checked;
+  client.gold=document.getElementById("editCGold").checked;
+  client.black=document.getElementById("editCBlack").checked;
+
+  // Update current tables and reservations that point to this client.
+  Object.values(db.tables).forEach(s=>{
+    if(s&&s.clientId===clientId){
+      s.clientName=name;
+      s.glow=client.glow || !!s.glow;
+      s.gold=client.gold || !!s.gold;
+      s.black=client.black || !!s.black;
+    }
+  });
+  db.reservations.forEach(r=>{
+    if(r.clientId===clientId){
+      r.clientName=name;
+    }
+  });
+
+  localStorage.setItem(DBKEY,JSON.stringify(db));
+  renderAll();
+  openCastClients(client.castId);
+  toast("クライアント情報を修正しました")
+}
+
 function openClientAdd(castId){
   const cast=castById(castId);
   if(!cast)return openMaster();
@@ -406,6 +550,7 @@ function openTable(table){
     </div>
     <div class="actions" style="margin-top:12px">
       ${convertNew}${convertComp}
+      <button class="action" onclick="openCurrentTableEdit('${table}')">名前/時間修正</button>
       <button class="action" onclick="toggleCheck('${table}')">${s.state==="check"?"CHECK解除":"CHECK"}</button>
       <button class="action" onclick="toggleCrown('${table}')">👑</button>
       <button class="action danger" onclick="checkout('${table}')">退店→バッシング</button>
@@ -443,6 +588,58 @@ function saveFieldConvert(table,source){
   saveDB();
   toast("場内へ切り替えました")
 }
+
+function openCurrentTableEdit(table){
+  const s=db.tables[table];
+  if(!s)return;
+  modal(`<h3>${table==="RVIP"?"RV":table} / 修正</h3>
+    <div class="grid">
+      <div class="field full">
+        <label>キャスト名</label>
+        <select id="editTableCast">${castOptions(s.castId||"")}</select>
+      </div>
+      <div class="field full">
+        <label>クライアント名</label>
+        <input id="editTableClientName" value="${esc(clientName(s))}">
+      </div>
+      <div class="field full">
+        <label>入店時間</label>
+        <input id="editTableTime" type="time" value="${esc(s.entryTime||nowHHMM())}">
+      </div>
+    </div>
+    <div class="card-actions">
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+      <button class="btn primary" onclick="saveCurrentTableEdit('${table}')">保存</button>
+    </div>`)
+}
+function saveCurrentTableEdit(table){
+  const s=db.tables[table];
+  if(!s)return;
+  snapshot("卓情報修正");
+
+  const castId=document.getElementById("editTableCast").value;
+  const typedClient=document.getElementById("editTableClientName").value.trim();
+
+  if(castId){
+    s.castId=castId;
+    s.castName=castById(castId)?.name||s.castName||"";
+  }
+  if(typedClient){
+    // This is a quick correction for this table only.
+    // If it is linked to a saved client, also correct that client's master name.
+    if(s.clientId){
+      const c=clientById(s.clientId);
+      if(c)c.name=typedClient;
+    }
+    s.clientName=typedClient;
+  }
+  s.entryTime=document.getElementById("editTableTime").value||s.entryTime;
+
+  closeModal();
+  saveDB();
+  toast("卓情報を修正しました")
+}
+
 function toggleCheck(t){snapshot("CHECK");db.tables[t].state=db.tables[t].state==="check"?"occupied":"check";closeModal();saveDB()}
 function toggleCrown(t){snapshot("👑");db.tables[t].crown=!db.tables[t].crown;closeModal();saveDB()}
 function checkout(t){snapshot("退店");db.tables[t].state="cleaning";closeModal();saveDB()}
