@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
-<title>SWAMP FOG CASHIER v7</title>
+<title>SWAMP FOG CASHIER v9</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#efefec;color:#111;
@@ -28,14 +28,71 @@ button{cursor:pointer}
 .floor>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none}
 .hotspot{position:absolute;border:0;background:transparent;padding:0;overflow:hidden}
 .hotspot:active{background:rgba(0,0,0,.05)}
-.overlay{position:absolute;inset:2px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
-padding:3px 5px;border-radius:2px;pointer-events:none;overflow:hidden}
-.overlay.occupied,.overlay.check,.overlay.cleaning{background:rgba(255,255,255,.92)}
-.ov-cast{font-weight:900;font-size:clamp(8px,.9vw,13px);line-height:1.05;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ov-client{font-size:clamp(7px,.82vw,12px);line-height:1.05;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ov-time{font-size:clamp(7px,.72vw,11px);color:#555;margin-top:2px}
-.tags{display:flex;gap:2px;flex-wrap:wrap;margin-top:2px}
-.tag{font-size:clamp(5px,.55vw,8px);padding:1px 3px;border-radius:999px;border:1px solid rgba(0,0,0,.18);white-space:nowrap}
+.overlay{
+  position:absolute;
+  left:2px; right:2px; top:20%; bottom:2px;
+  padding:1px 4px;
+  border-radius:2px;
+  pointer-events:none;
+  overflow:hidden;
+}
+.overlay.occupied,.overlay.check,.overlay.cleaning{background:rgba(255,255,255,.94)}
+.ov-cast,.ov-client,.ov-field{
+  position:absolute;
+  left:4px; right:4px;
+  max-width:calc(100% - 8px);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.ov-cast{
+  top:2px;
+  font-weight:900;
+  font-size:clamp(7px,.72vw,10px);
+  line-height:1.05;
+}
+.ov-client{
+  top:34%;
+  font-weight:700;
+  font-size:clamp(6px,.66vw,9px);
+  line-height:1.05;
+}
+.ov-field{
+  top:54%;
+  color:#16813a;
+  font-weight:900;
+  font-size:clamp(5.5px,.58vw,8px);
+  line-height:1.05;
+}
+.ov-time{
+  position:absolute;
+  left:4px;
+  bottom:2px;
+  font-size:clamp(6px,.58vw,8px);
+  color:#555;
+  line-height:1;
+  white-space:nowrap;
+}
+.tags{
+  position:absolute;
+  right:3px;
+  bottom:1px;
+  display:flex;
+  gap:1px;
+  flex-wrap:nowrap;
+  justify-content:flex-end;
+  max-width:58%;
+  overflow:hidden;
+}
+.tag{
+  font-size:clamp(4.5px,.43vw,6.5px);
+  line-height:1;
+  padding:1px 2px;
+  border-radius:999px;
+  border:1px solid rgba(0,0,0,.16);
+  white-space:nowrap;
+  flex:0 0 auto;
+}
 .t-orange{background:#ffb37e} .t-pink{background:#f59ac9} .t-green{background:#a8e995}
 .t-blue{background:#8fe0e7} .t-purple{background:#b38aeb} .t-yellow{background:#ffe89d}
 .t-red{background:#ff7777} .t-gray{background:#9a9a9a;color:#fff}
@@ -142,7 +199,7 @@ input,select{width:100%;border:1px solid #bdbdb7;background:#fff;border-radius:8
   <button class="btn" id="checkBtn">CHECK</button>
   <button class="btn" id="shareBtn">共有</button>
   <div class="spacer"></div>
-  <button class="btn" id="masterBtn">登録</button>
+  <button class="btn" id="masterBtn">キャスト/顧客</button>
   <button class="btn" id="undoBtn">↶戻す</button>
 </footer>
 </div>
@@ -172,6 +229,18 @@ function clientName(s){if(s.type==="new")return "ご新規様";if(s.type==="fiel
 
 function renderAll(){renderTables();renderSchedule();document.getElementById("undoBtn").disabled=!(db.history?.length)}
 
+
+function fitTableText(){
+  document.querySelectorAll(".ov-cast,.ov-client,.ov-field").forEach(el=>{
+    let size=parseFloat(getComputedStyle(el).fontSize);
+    const min=5.5;
+    while(el.scrollWidth>el.clientWidth && size>min){
+      size-=0.5;
+      el.style.fontSize=size+"px";
+    }
+  });
+}
+
 function renderTables(){
   document.querySelectorAll(".hotspot").forEach(h=>{
     const key=h.dataset.table,ov=document.getElementById("ov-"+key),s=db.tables[key];
@@ -183,10 +252,12 @@ function renderTables(){
     if(s.type==="new")tags.push(["ご新規","t-orange"]);
     if(s.companion)tags.push(["お連れ","t-orange"]);
     if(s.classification==="repeat"||s.classification==="first")tags.push([s.classification==="first"?"初回指名":"リピ","t-pink"]);
-    if(s.type==="field")tags.push(["場内","t-green"]);
+    if(s.type==="field"||s.companionField)tags.push(["場内","t-green"]);
     if(s.classification==="repeat2")tags.push(["2リピ","t-blue"]);
     if(s.quick)tags.push(["Q","t-purple"]);if(s.glow)tags.push(["光","t-yellow"]);if(s.gold)tags.push(["G","t-red"]);if(s.black)tags.push(["B","t-gray"]);if(s.crown)tags.push(["👑",""]);
-    ov.innerHTML='<div class="ov-cast">'+esc(castName(s))+'</div><div class="ov-client">'+esc(clientName(s))+'</div><div class="ov-time">'+esc(s.entryTime||"")+'</div>'+
+    ov.innerHTML='<div class="ov-cast">'+esc(castName(s))+'</div><div class="ov-client">'+esc(clientName(s))+'</div>'+
+      (s.companionField?'<div class="ov-field">場内：'+esc(s.companionFieldCastName||castById(s.companionFieldCastId)?.name||"")+'</div>':'')+
+      '<div class="ov-time">'+esc(s.entryTime||"")+'</div>'+
       (tags.length?'<div class="tags">'+tags.map(t=>'<span class="tag '+t[1]+'">'+t[0]+'</span>').join("")+'</div>':"")+
       (s.state==="check"?'<div class="bigx">×</div>':"");
   })
@@ -215,23 +286,70 @@ function castOptions(sel=""){return '<option value="">選択</option>'+db.casts.
 function clientOptions(castId,sel=""){return '<option value="">選択</option>'+db.clients.filter(c=>c.castId===castId).map(c=>`<option value="${c.id}" ${c.id===sel?"selected":""}>${esc(c.name)}</option>`).join("")}
 
 function openMaster(){
-  modal(`<h3>登録</h3><div class="actions">
-    <button class="action primary" onclick="openCastAdd()">＋キャスト登録</button>
-    <button class="action" onclick="openClientAdd()">＋クライアント登録</button>
-  </div>
-  <div style="margin-top:14px;font-size:12px;color:#666">キャスト ${db.casts.length}名 / クライアント ${db.clients.length}名</div>
-  <div class="card-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`)
+  modal(`<h3>キャスト / クライアント</h3>
+    <div class="actions">
+      <button class="action primary" onclick="openCastAdd()">＋キャスト登録</button>
+    </div>
+    <div style="margin-top:14px">
+      ${db.casts.length
+        ? db.casts.map(c=>`<div class="reserve"><div class="reserve-main">${esc(c.name)}</div><div class="reserve-actions"><button class="mini primary" onclick="openCastClients('${c.id}')">クライアント一覧</button></div></div>`).join("")
+        : '<div class="empty">まずキャストを登録してください</div>'}
+    </div>
+    <div class="card-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`)
 }
 function openCastAdd(){modal(`<h3>キャスト登録</h3><div class="field"><label>キャスト名</label><input id="castName"></div><div class="card-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveCast()">登録</button></div>`)}
-function saveCast(){const name=document.getElementById("castName").value.trim();if(!name)return toast("名前を入力");snapshot("キャスト登録");db.casts.push({id:uid("cast"),name});closeModal();saveDB()}
-function openClientAdd(){if(!db.casts.length)return openCastAdd();modal(`<h3>クライアント登録</h3><div class="grid"><div class="field"><label>担当キャスト</label><select id="clientCast">${castOptions()}</select></div><div class="field"><label>クライアント名</label><input id="clientName"></div><div class="field full"><label>継続属性</label><div class="checks"><label class="ck"><input type="checkbox" id="cGlow">光アイスペール</label><label class="ck"><input type="checkbox" id="cGold">ゴールド</label><label class="ck"><input type="checkbox" id="cBlack">ブラック</label></div></div></div><div class="card-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveClient()">登録</button></div>`)}
-function saveClient(){const castId=document.getElementById("clientCast").value,name=document.getElementById("clientName").value.trim();if(!castId||!name)return toast("入力してください");snapshot("顧客登録");db.clients.push({id:uid("client"),castId,name,glow:document.getElementById("cGlow").checked,gold:document.getElementById("cGold").checked,black:document.getElementById("cBlack").checked});closeModal();saveDB()}
+function saveCast(){
+  const name=document.getElementById("castName").value.trim();
+  if(!name)return toast("名前を入力");
+  snapshot("キャスト登録");
+  db.casts.push({id:uid("cast"),name});
+  localStorage.setItem(DBKEY,JSON.stringify(db));
+  renderAll();
+  openMaster();
+  toast("キャスト登録しました")
+}
+function openCastClients(castId){
+  const cast=castById(castId);if(!cast)return;
+  const clients=db.clients.filter(c=>c.castId===castId);
+  modal(`<h3>${esc(cast.name)}</h3>
+    <div class="actions"><button class="action primary" onclick="openClientAdd('${castId}')">＋新規クライアント登録</button></div>
+    <div style="margin-top:14px">
+      ${clients.length
+        ? clients.map(c=>`<div class="reserve"><div class="reserve-main">${esc(c.name)}</div><div class="reserve-sub">${c.glow?"光アイスペール ":""}${c.gold?"GOLD ":""}${c.black?"BLACK":""}</div></div>`).join("")
+        : '<div class="empty">クライアント登録なし</div>'}
+    </div>
+    <div class="card-actions"><button class="btn" onclick="openMaster()">戻る</button><button class="btn" onclick="closeModal()">閉じる</button></div>`)
+}
+function openClientAdd(castId){
+  const cast=castById(castId);
+  if(!cast)return openMaster();
+  modal(`<h3>${esc(cast.name)} / 新規クライアント</h3>
+    <div class="grid">
+      <div class="field full"><label>お客様の名前</label><input id="clientName" placeholder="クライアント名"></div>
+      <div class="field full"><label>継続属性</label><div class="checks">
+        <label class="ck"><input type="checkbox" id="cGlow">光アイスペール</label>
+        <label class="ck"><input type="checkbox" id="cGold">ゴールド</label>
+        <label class="ck"><input type="checkbox" id="cBlack">ブラック</label>
+      </div></div>
+    </div>
+    <div class="card-actions"><button class="btn" onclick="openCastClients('${castId}')">キャンセル</button><button class="btn primary" onclick="saveClient('${castId}')">登録</button></div>`)
+}
+function saveClient(castId){
+  const name=document.getElementById("clientName").value.trim();
+  if(!name)return toast("お客様の名前を入力してください");
+  snapshot("顧客登録");
+  db.clients.push({id:uid("client"),castId,name,glow:document.getElementById("cGlow").checked,gold:document.getElementById("cGold").checked,black:document.getElementById("cBlack").checked});
+  localStorage.setItem(DBKEY,JSON.stringify(db));
+  renderAll();
+  openCastClients(castId);
+  toast("クライアント登録しました")
+}
 
 function openGuide(table=null){
   if(!db.casts.length)return openCastAdd();
   modal(`<h3>${table?(table==="RVIP"?"RV":table)+"へ案内":"案内"}</h3><div class="grid">
     <div class="field"><label>種類</label><select id="gType" onchange="guideTypeChanged()"><option value="existing">既存クライアント</option><option value="new">ご新規様</option><option value="field">場内</option></select></div>
-    <div class="field"><label>キャスト</label><select id="gCast" onchange="refreshClients()">${castOptions()}</select></div>
+    <div class="field" id="gCastField"><label>キャスト</label><select id="gCast" onchange="refreshClients()">${castOptions()}</select></div>
     <div class="field" id="gClientField"><label>クライアント</label><select id="gClient"><option value="">キャストを選択</option></select></div>
     <div class="field" id="gRouteField" style="display:none"><label>来店経緯</label><select id="gRoute"><option>飛び込み</option><option>YN</option><option>G</option><option>道</option></select></div>
     <div class="field"><label>入店時間</label><input id="gTime" type="time" value="${nowHHMM()}"></div>
@@ -240,23 +358,90 @@ function openGuide(table=null){
     ${table?`<input type="hidden" id="gTable" value="${table}">`:`<div class="field full"><label>卓</label><select id="gTable">${Object.keys(BOXES).map(k=>`<option value="${k}">${k==="RVIP"?"RV":k}</option>`).join("")}</select></div>`}
   </div><div class="card-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveGuide()">案内確定</button></div>`);guideTypeChanged()
 }
-function guideTypeChanged(){const t=document.getElementById("gType").value;document.getElementById("gClientField").style.display=t==="existing"?"grid":"none";document.getElementById("gRouteField").style.display=t==="new"?"grid":"none";document.getElementById("gClass").disabled=t!=="existing"}
+function guideTypeChanged(){const t=document.getElementById("gType").value;document.getElementById("gCastField").style.display=t==="new"?"none":"grid";document.getElementById("gClientField").style.display=t==="existing"?"grid":"none";document.getElementById("gRouteField").style.display=t==="new"?"grid":"none";document.getElementById("gClass").disabled=t!=="existing"}
 function refreshClients(){document.getElementById("gClient").innerHTML=clientOptions(document.getElementById("gCast").value)}
 function saveGuide(){
-  const table=document.getElementById("gTable").value;if(db.tables[table])return toast("使用中です");
-  const type=document.getElementById("gType").value,castId=document.getElementById("gCast").value;if(!castId)return toast("キャストを選択");
-  const clientId=type==="existing"?document.getElementById("gClient").value:null;if(type==="existing"&&!clientId)return toast("クライアントを選択");
-  const c=clientById(clientId);snapshot("案内");
-  db.tables[table]={type,castId,clientId,clientName:c?.name||"",entryTime:document.getElementById("gTime").value||nowHHMM(),classification:type==="existing"?document.getElementById("gClass").value:"",companion:document.getElementById("gCompanion").checked,quick:document.getElementById("gQuick").checked,glow:document.getElementById("gGlow").checked||!!c?.glow,gold:document.getElementById("gGold").checked||!!c?.gold,black:document.getElementById("gBlack").checked||!!c?.black,crown:document.getElementById("gCrown").checked,state:"occupied"};
-  closeModal();saveDB()
+  const table=document.getElementById("gTable").value;
+  if(db.tables[table])return toast("使用中です");
+  const type=document.getElementById("gType").value;
+  const castId=type==="new"?"":document.getElementById("gCast").value;
+  if(type!=="new"&&!castId)return toast("キャストを選択");
+  const clientId=type==="existing"?document.getElementById("gClient").value:null;
+  if(type==="existing"&&!clientId)return toast("クライアントを選択");
+  const c=clientById(clientId);
+  snapshot("案内");
+  db.tables[table]={
+    type,
+    castId,
+    castName:castById(castId)?.name||"",
+    clientId,
+    clientName:c?.name||"",
+    entryTime:document.getElementById("gTime").value||nowHHMM(),
+    route:type==="new"?document.getElementById("gRoute").value:"",
+    classification:type==="existing"?document.getElementById("gClass").value:"",
+    companion:document.getElementById("gCompanion").checked,
+    quick:document.getElementById("gQuick").checked,
+    glow:document.getElementById("gGlow").checked||!!c?.glow,
+    gold:document.getElementById("gGold").checked||!!c?.gold,
+    black:document.getElementById("gBlack").checked||!!c?.black,
+    crown:document.getElementById("gCrown").checked,
+    state:"occupied"
+  };
+  closeModal();
+  saveDB()
 }
 
 function openTable(table){
   const s=db.tables[table];
   if(!s)return openGuide(table);
   if(s.state==="cleaning")return modal(`<h3>${table==="RVIP"?"RV":table}</h3><div style="font-weight:900">バッシング中</div><div class="card-actions"><button class="btn" onclick="closeModal()">閉じる</button><button class="btn primary" onclick="finishCleaning('${table}')">バッシング完了</button></div>`);
-  modal(`<h3>${table==="RVIP"?"RV":table}</h3><div style="font-size:13px;line-height:1.8"><b>${esc(castName(s))}</b><br>${esc(clientName(s))}<br>${esc(s.entryTime||"")}</div>
-  <div class="actions" style="margin-top:12px"><button class="action" onclick="toggleCheck('${table}')">${s.state==="check"?"CHECK解除":"CHECK"}</button><button class="action" onclick="toggleCrown('${table}')">👑</button><button class="action danger" onclick="checkout('${table}')">退店→バッシング</button><button class="action" onclick="clearTable('${table}')">卓クリア</button></div><div class="card-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`)
+  const convertNew=s.type==="new"?`<button class="action primary" onclick="openFieldConvert('${table}','new')">ご新規様→場内</button>`:"";
+  const convertComp=s.companion?`<button class="action primary" onclick="openFieldConvert('${table}','companion')">お連れ様→場内</button>`:"";
+  modal(`<h3>${table==="RVIP"?"RV":table}</h3>
+    <div style="font-size:13px;line-height:1.8">
+      <b>${esc(castName(s))}</b><br>
+      ${esc(clientName(s))}<br>
+      ${esc(s.entryTime||"")}
+      ${s.companionField?`<br><b style="color:#16813a">場内：${esc(s.companionFieldCastName||"")}</b>`:""}
+    </div>
+    <div class="actions" style="margin-top:12px">
+      ${convertNew}${convertComp}
+      <button class="action" onclick="toggleCheck('${table}')">${s.state==="check"?"CHECK解除":"CHECK"}</button>
+      <button class="action" onclick="toggleCrown('${table}')">👑</button>
+      <button class="action danger" onclick="checkout('${table}')">退店→バッシング</button>
+      <button class="action" onclick="clearTable('${table}')">卓クリア</button>
+    </div>
+    <div class="card-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`)
+}
+function openFieldConvert(table,source){
+  if(!db.casts.length)return openCastAdd();
+  modal(`<h3>${source==="new"?"ご新規様":"お連れ様"} → 場内</h3>
+    <div class="field"><label>場内指名キャスト</label><select id="fieldCast">${castOptions()}</select></div>
+    <div class="card-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveFieldConvert('${table}','${source}')">場内へ切替</button></div>`)
+}
+function saveFieldConvert(table,source){
+  const castId=document.getElementById("fieldCast").value;
+  if(!castId)return toast("キャストを選択");
+  const cast=castById(castId),s=db.tables[table];
+  if(!s)return;
+  snapshot("場内切替");
+  if(source==="new"){
+    s.type="field";
+    s.castId=castId;
+    s.castName=cast?.name||"";
+    s.clientId=null;
+    s.clientName="";
+    s.classification="";
+    s.companion=false
+  }else{
+    s.companion=false;
+    s.companionField=true;
+    s.companionFieldCastId=castId;
+    s.companionFieldCastName=cast?.name||""
+  }
+  closeModal();
+  saveDB();
+  toast("場内へ切り替えました")
 }
 function toggleCheck(t){snapshot("CHECK");db.tables[t].state=db.tables[t].state==="check"?"occupied":"check";closeModal();saveDB()}
 function toggleCrown(t){snapshot("👑");db.tables[t].crown=!db.tables[t].crown;closeModal();saveDB()}
