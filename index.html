@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>SWAMP FOG CASHIER v27 REALTIME</title>
+<title>SWAMP FOG CASHIER v28 REALTIME</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#efefec;color:#111;
@@ -503,7 +503,7 @@ function loadDB(){
   }
 }
 function persistLocalOnly(){
-  window.persistLocal()
+  window.localStorage.setItem(DBKEY,JSON.stringify(db))
 }
 function persistLocal(){
   persistLocalOnly();
