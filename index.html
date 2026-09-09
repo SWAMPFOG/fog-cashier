@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>SWAMP FOG CASHIER v19</title>
+<title>SWAMP FOG CASHIER v27 REALTIME</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#efefec;color:#111;
@@ -21,6 +21,45 @@ button{cursor:pointer}
 .tab{border:1px solid #c9c9c3;background:#fff;padding:9px 18px;border-radius:10px;font-weight:850;color:#555}
 .tab.active{background:#111;color:#fff;border-color:#111}
 .meta{font-size:12px;color:#666;white-space:nowrap}
+
+.meta{display:flex;align-items:center;gap:7px}
+.sync-pill{
+  border:1px solid #c9c9c3;
+  background:#f8f8f5;
+  color:#666;
+  border-radius:999px;
+  padding:4px 7px;
+  font-size:9px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.sync-pill.ok{background:#eef8ef;color:#1c6b2a;border-color:#b8d9bd}
+.sync-pill.busy{background:#fff7e2;color:#8a6100;border-color:#e2cf96}
+.sync-pill.error{background:#fff0f0;color:#a01818;border-color:#e2b5b5}
+
+.sync-login{
+  position:fixed;
+  inset:0;
+  z-index:200;
+  background:rgba(243,243,240,.98);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+.sync-login.open{display:flex}
+.sync-login-card{
+  width:min(430px,94vw);
+  background:#fff;
+  border:1px solid #c9c9c3;
+  border-radius:16px;
+  padding:20px;
+  box-shadow:0 18px 45px rgba(0,0,0,.12);
+}
+.sync-login-card h2{margin:0 0 5px;font-size:20px}
+.sync-login-card p{margin:0 0 16px;color:#666;font-size:12px;line-height:1.6}
+.sync-login-fields{display:grid;gap:10px}
+.sync-login-error{min-height:18px;margin-top:8px;color:#b00020;font-size:11px;font-weight:800}
 
 .screen{display:none;min-height:0}
 .screen.active{display:block}
@@ -251,7 +290,7 @@ button{cursor:pointer}
 .schedule-card{background:#fff;border:1px solid #d0d0ca;border-radius:14px;padding:12px;min-height:100%}
 .schedule-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .schedule-head h2{margin:0;font-size:18px}
-.schedule-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.schedule-grid{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px;overflow-x:auto}
 .schedule-col{border:1px solid #d7d7d1;border-radius:12px;overflow:hidden;background:#fff}
 .schedule-title{padding:10px 12px;font-weight:900;background:#f6f6f3;border-bottom:1px solid #d7d7d1}
 .reserve{padding:10px 12px;border-bottom:1px solid #ecece8}
@@ -287,6 +326,27 @@ input,select{width:100%;border:1px solid #bdbdb7;background:#fff;border-radius:8
 .mini{border:1px solid #c8c8c2;background:#fff;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:800}
 .mini.primary{background:#111;color:#fff;border-color:#111}
 
+.table-number-move{
+  display:inline-block;
+  border:1px solid #111;
+  background:#111;
+  color:#fff;
+  border-radius:9px;
+  padding:7px 13px;
+  font-size:18px;
+  font-weight:950;
+  letter-spacing:.03em;
+}
+.move-history{
+  margin-top:8px;
+  padding:8px;
+  border:1px solid #ddd;
+  border-radius:8px;
+  font-size:12px;
+  line-height:1.65;
+}
+.move-history b{font-weight:900}
+
 .toast{position:fixed;left:50%;bottom:74px;transform:translateX(-50%) translateY(20px);opacity:0;transition:.18s;background:#111;color:#fff;padding:9px 14px;border-radius:999px;font-size:12px;z-index:80;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
@@ -297,11 +357,30 @@ input,select{width:100%;border:1px solid #bdbdb7;background:#fff;border-radius:8
   .tab{padding:8px 14px}
   .meta{font-size:11px}
   .bottom .btn{font-size:11px;padding:8px 9px}
-  .schedule-grid{grid-template-columns:1fr 1fr}
+  .schedule-grid{grid-template-columns:repeat(3,minmax(180px,1fr))}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div class="sync-login" id="syncLogin">
+  <div class="sync-login-card">
+    <h2>FOG CASHIER</h2>
+    <p>店内リアルタイム共有にログイン</p>
+    <div class="sync-login-fields">
+      <div class="field">
+        <label>メールアドレス</label>
+        <input id="syncEmail" type="email" autocomplete="username" placeholder="cashier@example.com">
+      </div>
+      <div class="field">
+        <label>パスワード</label>
+        <input id="syncPassword" type="password" autocomplete="current-password" placeholder="Password">
+      </div>
+      <button class="btn primary" type="button" onclick="cashierLogin()">ログイン</button>
+    </div>
+    <div class="sync-login-error" id="syncLoginError"></div>
+  </div>
+</div>
 <div class="app">
 <header class="top">
   <div class="brand">SWAMP FOG CASHIER</div>
@@ -309,7 +388,10 @@ input,select{width:100%;border:1px solid #bdbdb7;background:#fff;border-radius:8
     <button class="tab active" data-screen="board">卓表</button>
     <button class="tab" data-screen="schedule">予定表</button>
   </div>
-  <div class="meta"><strong id="clock">--:--</strong></div>
+  <div class="meta">
+    <button class="sync-pill busy" id="syncStatus" type="button" onclick="openSyncPanel()">未接続</button>
+    <strong id="clock">--:--</strong>
+  </div>
 </header>
 
 <main class="screen active" id="boardScreen">
@@ -336,6 +418,10 @@ input,select{width:100%;border:1px solid #bdbdb7;background:#fff;border-radius:8
           <div class="schedule-title">同伴</div>
           <div id="companionList"></div>
         </div>
+        <div class="schedule-col">
+          <div class="schedule-title">同業</div>
+          <div id="industryList"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -344,6 +430,7 @@ input,select{width:100%;border:1px solid #bdbdb7;background:#fff;border-radius:8
 <footer class="bottom">
   <button class="btn primary" id="guideBtn">＋案内</button>
   <button class="btn" id="reserveBtn">＋予定</button>
+  <button class="btn" id="trialBtn">体験</button>
   <button class="btn" id="checkBtn">CHECK</button>
   <button class="btn" id="shareBtn">共有</button>
   <div class="spacer"></div>
@@ -377,13 +464,93 @@ const defaultDB=()=>({
 });
 let db=loadDB();
 let currentScreen="board";
+let moveMode=null;
 
-function loadDB(){try{return Object.assign(defaultDB(),JSON.parse(localStorage.getItem(DBKEY))||{})}catch(e){return defaultDB()}}
-function saveDB(){localStorage.setItem(DBKEY,JSON.stringify(db));renderAll()}
+const SUPABASE_URL='https://sffzcooyulzjrxkxvcrx.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_3cmJ6BW-qBh6N3ThfwebJA_iw9tR_cP';
+const CASHIER_STATE_ID="main";
+const SYNC_EMAIL_KEY="fogCashierSyncEmail";
+
+const sb=window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth:{
+      persistSession:true,
+      autoRefreshToken:true,
+      detectSessionInUrl:true
+    }
+  }
+);
+
+let syncReady=false;
+let syncConnecting=false;
+let realtimeChannel=null;
+let serverRevision=null;
+let serverBase=null;
+let localDirty=false;
+let remoteSaveTimer=null;
+let remoteSaveInFlight=false;
+let queuedRemoteRow=null;
+let currentAuthEmail="";
+
+
+function loadDB(){
+  try{
+    return Object.assign(defaultDB(),JSON.parse(localStorage.getItem(DBKEY))||{})
+  }catch(e){
+    return defaultDB()
+  }
+}
+function persistLocalOnly(){
+  window.persistLocal()
+}
+function persistLocal(){
+  persistLocalOnly();
+  if(syncReady){
+    localDirty=true;
+    scheduleRemoteSave()
+  }
+}
+function saveDB(){
+  persistLocal();
+  renderAll()
+}
 function snapshot(label){db.history=db.history||[];db.history.push({label,db:JSON.parse(JSON.stringify({casts:db.casts,clients:db.clients,staff:db.staff,reservations:db.reservations,tables:db.tables}))});if(db.history.length>20)db.history.shift()}
-function undo(){if(!db.history?.length)return toast("戻せる操作がありません");const s=db.history.pop();Object.assign(db,s.db);localStorage.setItem(DBKEY,JSON.stringify(db));renderAll();toast("1つ前に戻しました")}
+function undo(){if(!db.history?.length)return toast("戻せる操作がありません");const s=db.history.pop();Object.assign(db,s.db);persistLocal();renderAll();toast("1つ前に戻しました")}
 function uid(p){return p+"_"+Date.now()+"_"+Math.random().toString(36).slice(2,7)}
 function nowHHMM(){const d=new Date();return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
+function normalizeBusinessTime(value){
+  if(!value)return "";
+  const m=String(value).match(/^(\d{1,2}):(\d{2})$/);
+  if(!m)return value;
+  let h=Number(m[1]),min=Number(m[2]);
+  if(h===0)h=24;
+  else if(h===1)h=25;
+  const total=h*60+min;
+  if(total<20*60)return "20:00";
+  if(total>25*60)return "25:00";
+  return String(h).padStart(2,"0")+":"+String(min).padStart(2,"0")
+}
+function nowBusinessHHMM(){
+  const d=new Date();
+  let h=d.getHours(),m=d.getMinutes();
+  if(h===0)h=24;
+  else if(h===1)h=25;
+  const total=h*60+m;
+  if(total<20*60||total>25*60)return "20:00";
+  return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")
+}
+function businessTimeOptions(selected=""){
+  const sel=normalizeBusinessTime(selected||nowBusinessHHMM());
+  let html="";
+  for(let total=20*60;total<=25*60;total++){
+    const h=Math.floor(total/60),m=total%60;
+    const v=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
+    html+=`<option value="${v}" ${v===sel?"selected":""}>${v}</option>`
+  }
+  return html
+}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove("show"),1500)}
 function castById(id){return db.casts.find(x=>x.id===id)}
@@ -393,6 +560,17 @@ function staffById(id){return (db.staff||[]).find(x=>x.id===id)}
 function staffOptions(selected=""){
   const list=db.staff||[];
   return '<option value="">選択</option>'+list.map(s=>`<option value="${s.id}" ${s.id===selected?"selected":""}>${esc(s.name)}</option>`).join("")
+}
+function industryFeeOptions(selected=30000){
+  return `
+    <option value="30000" ${Number(selected)===30000?"selected":""}>¥30,000</option>
+    <option value="100000" ${Number(selected)===100000?"selected":""}>¥100,000</option>`
+}
+function baseTypeLabel(type){
+  if(type==="new")return "ご新規様";
+  if(type==="industry")return "同業";
+  if(type==="trial")return "体験";
+  return "既存クライアント"
 }
 function yen(v){
   const n=Number(v||0);
@@ -410,7 +588,7 @@ function fieldPlanOptions(selected=""){
 function addMinutesHHMM(hhmm,mins){
   if(!hhmm)return "";
   const [h,m]=hhmm.split(":").map(Number);
-  const total=(h*60+m+mins)%(24*60);
+  const total=h*60+m+mins;
   return String(Math.floor(total/60)).padStart(2,"0")+":"+String(total%60).padStart(2,"0")
 }
 function needsFieldRecheck(plan){
@@ -427,22 +605,6 @@ function newPlanChanged(prefix){
   const out=document.getElementById(prefix+"NewAmount");
   if(out)out.value=amount
 }
-function clientRowChanged(sel){
-  const row=sel.closest(".dynamic-row");
-  const fee=row?.querySelector(".companion-fee-wrap");
-  if(fee)fee.style.display=sel.value==="__companion__"?"block":"none"
-}
-function collectCompanionFees(containerId,selector){
-  const fees=[];
-  document.querySelectorAll(`#${containerId} ${selector}`).forEach(sel=>{
-    if(sel.value==="__companion__"){
-      const fee=sel.closest(".dynamic-row")?.querySelector(".companion-fee")?.value;
-      fees.push(Number(fee||0))
-    }
-  });
-  return fees
-}
-
 const CATEGORY_DEFS={
   none:{label:"色なし",short:"",cls:""},
   new:{label:"ご新規様",short:"ご新規様",cls:"t-orange"},
@@ -462,67 +624,130 @@ function categoryOptions(selected="none"){
   ).join("")
 }
 function legacyCategory(s){
-  if(s.category==="orange"){
-    return sessionType(s)==="companion"?"companion":"new"
-  }
   if(s.category&&CATEGORY_DEFS[s.category])return s.category;
   if(s.black)return "gray";
   if(s.gold)return "red";
   if(s.glow)return "yellow";
   if(s.quick)return "purple";
   if(s.classification==="repeat2")return "blue";
-  if(s.type==="field"||s.companionField)return "green";
   if(s.classification==="first"||s.classification==="repeat")return "pink";
-  if(sessionType(s)==="companion")return "companion";
-  if(sessionType(s)==="new")return "new";
-  return "none"
+  return sessionType(s)==="new"?"new":"none"
 }
 function sessionType(s){
-  if(s.type==="companion")return "companion";
-  if(s.companion)return "companion";
-  return s.type||"existing"
+  if(["new","existing","industry","trial"].includes(s.baseType))return s.baseType;
+  if(["new","industry","trial"].includes(s.type))return s.type;
+  return "existing"
 }
+function getFieldAssignments(s){
+  if(Array.isArray(s.fieldAssignments))return s.fieldAssignments;
+
+  // v20以前の場内データを表示できるように最低限引き継ぐ
+  if((s.type==="field"||s.fieldPlan)&&s.fieldPlan){
+    const castId=(Array.isArray(s.castIds)&&s.castIds[0])||s.castId||"";
+    return [{
+      id:"legacy_field",
+      castId,
+      plan:Number(s.fieldPlan||0),
+      startTime:s.fieldStartTime||"",
+      nextCheckTime:s.fieldNextCheckTime||""
+    }]
+  }
+  return []
+}
+function fieldCapacity(s){
+  const type=sessionType(s);
+  if(type==="new")return Math.max(1,Number(s.newGuestCount||1));
+  if(type==="existing")return Math.max(0,Number(s.companionCount ?? (Array.isArray(s.companionFees)?s.companionFees.length:0)));
+  return 0
+}
+function fieldCount(s){return getFieldAssignments(s).length}
+function remainingFieldSlots(s){return Math.max(0,fieldCapacity(s)-fieldCount(s))}
 function sessionCastIds(s){
-  if(Array.isArray(s.castIds))return s.castIds.filter(Boolean);
   const ids=[];
-  if(s.castId)ids.push(s.castId);
+  const baseIds=Array.isArray(s.castIds)?s.castIds.filter(Boolean):[];
+  baseIds.forEach(id=>{if(!ids.includes(id))ids.push(id)});
+  if(s.castId&&!ids.includes(s.castId))ids.push(s.castId);
   if(s.castId2&&!ids.includes(s.castId2))ids.push(s.castId2);
-  if(s.companionFieldCastId&&!ids.includes(s.companionFieldCastId))ids.push(s.companionFieldCastId);
+
+  getFieldAssignments(s).forEach(a=>{
+    if(a.castId&&!ids.includes(a.castId))ids.push(a.castId)
+  });
   return ids
 }
 function sessionClientIds(s){
-  if(Array.isArray(s.clientIds))return s.clientIds.filter(Boolean);
+  if(Array.isArray(s.clientIds))return s.clientIds.filter(id=>id&&id!=="__companion__");
   const ids=[];
   if(s.clientId)ids.push(s.clientId);
   if(s.clientId2&&!ids.includes(s.clientId2))ids.push(s.clientId2);
   return ids
 }
 function sessionCastNames(s){
-  const ids=sessionCastIds(s);
-  const names=ids.map(id=>castById(id)?.name).filter(Boolean);
+  const names=sessionCastIds(s).map(id=>castById(id)?.name).filter(Boolean);
   if(!names.length){
-    [s.castName,s.castName2,s.companionFieldCastName].filter(Boolean).forEach(n=>{
+    [s.castName,s.castName2].filter(Boolean).forEach(n=>{
       if(!names.includes(n))names.push(n)
     })
   }
   return names
 }
-function sessionClientNames(s){
-  const t=sessionType(s);
-  if(t==="new")return ["ご新規様"];
-  if(t==="field")return ["場内"];
-  if(t==="companion"&&!sessionClientIds(s).length)return ["お連れ様"];
+function sessionClientEntries(s){
+  const type=sessionType(s);
+  const fields=fieldCount(s);
+  const entries=[];
 
+  if(type==="trial"){
+    return [{name:"体験",category:"none"}]
+  }
+
+  if(type==="industry"){
+    return [{name:"同業",category:"none"}]
+  }
+
+  if(type==="new"){
+    const total=Math.max(1,Number(s.newGuestCount||1));
+    const remaining=Math.max(0,total-fields);
+    if(remaining>0)entries.push({
+      name:"ご新規様"+(total>1?"×"+remaining:""),
+      category:"new"
+    });
+    if(fields>0)entries.push({
+      name:"場内"+(fields>1?"×"+fields:""),
+      category:"green"
+    });
+    return entries
+  }
+
+  const regularCategory=legacyCategory(s);
   const ids=sessionClientIds(s);
-  const names=ids.map(id=>clientById(id)?.name).filter(Boolean);
+  ids.forEach(id=>{
+    const c=clientById(id);
+    if(c)entries.push({name:c.name,category:regularCategory})
+  });
 
-  if(!names.length){
+  if(!entries.length){
     [s.clientName,s.clientName2].filter(Boolean).forEach(n=>{
-      if(!names.includes(n))names.push(n)
+      if(!entries.some(x=>x.name===n))entries.push({name:n,category:regularCategory})
     })
   }
-  if(!names.length&&t==="companion")names.push("お連れ様");
-  return names
+
+  const totalComp=Math.max(0,Number(s.companionCount ?? (Array.isArray(s.companionFees)?s.companionFees.length:0)));
+  const remainingComp=Math.max(0,totalComp-fields);
+  if(remainingComp>0){
+    entries.push({
+      name:"お連れ様"+(totalComp>1?"×"+remainingComp:""),
+      category:"companion"
+    })
+  }
+  if(fields>0){
+    entries.push({
+      name:"場内"+(fields>1?"×"+fields:""),
+      category:"green"
+    })
+  }
+  return entries
+}
+function sessionClientNames(s){
+  return sessionClientEntries(s).map(x=>x.name)
 }
 function castName(s){return sessionCastNames(s)[0]||"—"}
 function clientName(s){return sessionClientNames(s)[0]||"—"}
@@ -532,66 +757,48 @@ function selectedCastIds(containerId,selector){
     .map(x=>x.value)
     .filter(Boolean)
 }
-function clientOptionsForCasts(castIds,selected="",includeCompanion=false){
+function clientOptionsForCasts(castIds,selected=""){
   const allowed=new Set(castIds.filter(Boolean));
   const clients=db.clients.filter(c=>allowed.has(c.castId));
 
   let html='<option value="">選択</option>';
-
   clients.forEach(c=>{
     html+=`<option value="${c.id}" ${c.id===selected?"selected":""}>${esc(c.name)}</option>`
   });
 
-  if(includeCompanion||selected==="__companion__"){
-    html+=`<option value="__companion__" ${selected==="__companion__"?"selected":""}>お連れ様</option>`
-  }
-
-  if(selected&&selected!=="__companion__"&&!clients.some(c=>c.id===selected)){
+  if(selected&&!clients.some(c=>c.id===selected)){
     const c=clientById(selected);
-    if(c){
-      html+=`<option value="${c.id}" selected>${esc(c.name)}</option>`
-    }
+    if(c)html+=`<option value="${c.id}" selected>${esc(c.name)}</option>`
   }
-
   return html
 }
-function sessionClientEntries(s){
-  const t=sessionType(s);
-
-  if(t==="new"){
-    return [{name:"ご新規様",category:"new"}]
+function countOptions(min,max,selected){
+  let html="";
+  for(let i=min;i<=max;i++){
+    html+=`<option value="${i}" ${Number(selected)===i?"selected":""}>${i}名</option>`
   }
-  if(t==="field"){
-    return [{name:"場内",category:"green"}]
-  }
-
-  const ids=sessionClientIds(s);
-  const regularCategory=legacyCategory(s);
-  const entries=[];
-
-  ids.forEach(id=>{
-    if(id==="__companion__"){
-      entries.push({name:"お連れ様",category:"companion"})
-      return
-    }
-    const c=clientById(id);
-    if(c)entries.push({name:c.name,category:regularCategory})
-  });
-
-  if(!entries.length&&t==="companion"){
-    entries.push({name:"お連れ様",category:"companion"})
-  }
-
-  if(!entries.length){
-    [s.clientName,s.clientName2].filter(Boolean).forEach(n=>{
-      entries.push({name:n,category:regularCategory})
-    })
-  }
-
-  return entries
+  return html
 }
-function sessionClientNames(s){
-  return sessionClientEntries(s).map(x=>x.name)
+function companionFeeInputs(prefix,count,fees=[]){
+  const n=Math.max(0,Number(count||0));
+  return Array.from({length:n},(_,i)=>`
+    <div class="field">
+      <label>お連れ様${n>1?i+1:""} 料金</label>
+      <select class="${prefix}CompanionFee">
+        <option value="3000" ${Number(fees[i]??3000)===3000?"selected":""}>¥3,000</option>
+        <option value="0" ${Number(fees[i]??3000)===0?"selected":""}>¥0</option>
+      </select>
+    </div>`).join("")
+}
+function renderCompanionFees(prefix){
+  const count=Number(document.getElementById(prefix+"CompanionCount")?.value||0);
+  const wrap=document.getElementById(prefix+"CompanionFees");
+  if(!wrap)return;
+  const current=[...wrap.querySelectorAll("select")].map(x=>Number(x.value||0));
+  wrap.innerHTML=companionFeeInputs(prefix,count,current)
+}
+function collectCompanionFeeInputs(prefix){
+  return [...document.querySelectorAll(`.${prefix}CompanionFee`)].map(x=>Number(x.value||0))
 }
 function selectedCastOptionHtml(castIds,selected=""){
   const ids=[...new Set(castIds.filter(Boolean))];
@@ -637,7 +844,7 @@ function saveQuickClientRegister(context="g"){
   };
   db.clients.push(newClient);
 
-  localStorage.setItem(DBKEY,JSON.stringify(db));
+  persistLocal();
 
   if(context==="g"){
     refreshClientListFor("gCastList",".gCastDyn","gClientList",".gClientDyn");
@@ -667,26 +874,15 @@ function dynamicCastRows(ids=[],prefix="gCastDyn"){
       ${i===0?"":'<button type="button" class="remove-one" onclick="this.closest(\'.dynamic-row\').remove();refreshLinkedClients()">×</button>'}
     </div>`).join("")
 }
-function dynamicClientRows(ids=[],prefix="gClientDyn",castIds=[],companionFees=[]){
+function dynamicClientRows(ids=[],prefix="gClientDyn",castIds=[]){
   const list=ids.length?ids:[""];
-  let companionIndex=0;
-  return list.map((id,i)=>{
-    const isComp=id==="__companion__";
-    const fee=isComp?(companionFees[companionIndex++] ?? 3000):3000;
-    return `
+  return list.map((id,i)=>`
     <div class="dynamic-row" data-dynamic="client">
-      <select class="${prefix}" onchange="clientRowChanged(this)">
-        ${clientOptionsForCasts(castIds,id,i>0||isComp)}
+      <select class="${prefix}">
+        ${clientOptionsForCasts(castIds,id)}
       </select>
-      <div class="companion-fee-wrap" style="${isComp?"":"display:none"};flex:0 0 94px">
-        <select class="companion-fee">
-          <option value="3000" ${Number(fee)===3000?"selected":""}>¥3,000</option>
-          <option value="0" ${Number(fee)===0?"selected":""}>¥0</option>
-        </select>
-      </div>
-      ${i===0?"":'<button type="button" class="remove-one" onclick="this.closest(\\'.dynamic-row\\').remove()">×</button>'}
-    </div>`
-  }).join("")
+      ${i===0?"":`<button type="button" class="remove-one" onclick="this.closest('.dynamic-row').remove()">×</button>`}
+    </div>`).join("")
 }
 function addDynamicCast(containerId,prefix){
   const c=document.getElementById(containerId);
@@ -705,12 +901,7 @@ function addDynamicClient(containerId,prefix,castContainerId,castSelector){
   const row=document.createElement("div");
   row.className="dynamic-row";
   row.dataset.dynamic="client";
-  row.innerHTML=`
-    <select class="${prefix}" onchange="clientRowChanged(this)">${clientOptionsForCasts(castIds,"",true)}</select>
-    <div class="companion-fee-wrap" style="display:none;flex:0 0 94px">
-      <select class="companion-fee"><option value="3000">¥3,000</option><option value="0">¥0</option></select>
-    </div>
-    <button type="button" class="remove-one">×</button>`;
+  row.innerHTML=`<select class="${prefix}">${clientOptionsForCasts(castIds)}</select><button type="button" class="remove-one">×</button>`;
   row.querySelector(".remove-one").onclick=()=>row.remove();
   c.appendChild(row)
 }
@@ -719,10 +910,9 @@ function collectDynamicValues(containerId,selector){
 }
 function refreshClientListFor(castContainerId,castSelector,clientContainerId,clientSelector){
   const castIds=selectedCastIds(castContainerId,castSelector);
-  document.querySelectorAll(`#${clientContainerId} ${clientSelector}`).forEach((sel,i)=>{
+  document.querySelectorAll(`#${clientContainerId} ${clientSelector}`).forEach(sel=>{
     const current=sel.value;
-    sel.innerHTML=clientOptionsForCasts(castIds,current,i>0||current==="__companion__");
-    clientRowChanged(sel)
+    sel.innerHTML=clientOptionsForCasts(castIds,current)
   })
 }
 function refreshLinkedClients(){
@@ -737,8 +927,6 @@ function syncCategoryWithType(type,selectId){
   const el=document.getElementById(selectId);
   if(!el)return;
   if(type==="new")el.value="new";
-  else if(type==="companion")el.value="companion";
-  else if(type==="field")el.value="green";
   else if(["new","companion","green"].includes(el.value))el.value="none"
 }
 
@@ -747,6 +935,444 @@ document.addEventListener("change",e=>{
     refreshLinkedClients()
   }
 });
+
+
+function deepClone(v){
+  return JSON.parse(JSON.stringify(v))
+}
+function sameJSON(a,b){
+  return JSON.stringify(a)===JSON.stringify(b)
+}
+function syncPayload(source=db){
+  return {
+    initialized:true,
+    casts:deepClone(source.casts||[]),
+    clients:deepClone(source.clients||[]),
+    staff:deepClone(source.staff||[]),
+    reservations:deepClone(source.reservations||[]),
+    tables:deepClone(source.tables||{})
+  }
+}
+function hasLocalOperationalData(){
+  return (db.casts?.length||0)>0 ||
+         (db.clients?.length||0)>0 ||
+         (db.reservations?.length||0)>0 ||
+         Object.keys(db.tables||{}).length>0
+}
+function setSyncStatus(text,state="busy"){
+  const el=document.getElementById("syncStatus");
+  if(!el)return;
+  el.textContent=text;
+  el.classList.remove("ok","busy","error");
+  el.classList.add(state)
+}
+function showSyncLogin(){
+  const email=localStorage.getItem(SYNC_EMAIL_KEY)||"";
+  const input=document.getElementById("syncEmail");
+  if(input)input.value=email;
+  document.getElementById("syncLogin")?.classList.add("open");
+  setSyncStatus("要ログイン","error")
+}
+function hideSyncLogin(){
+  document.getElementById("syncLogin")?.classList.remove("open")
+}
+async function cashierLogin(){
+  const email=document.getElementById("syncEmail").value.trim();
+  const password=document.getElementById("syncPassword").value;
+  const errBox=document.getElementById("syncLoginError");
+  if(!email||!password){
+    errBox.textContent="メールアドレスとパスワードを入力してください";
+    return
+  }
+  errBox.textContent="";
+  setSyncStatus("ログイン中","busy");
+
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){
+    console.error("cashier login",error);
+    errBox.textContent="ログインできませんでした";
+    setSyncStatus("ログイン失敗","error");
+    return
+  }
+
+  currentAuthEmail=data.user?.email||email;
+  localStorage.setItem(SYNC_EMAIL_KEY,currentAuthEmail);
+  document.getElementById("syncPassword").value="";
+  hideSyncLogin();
+  await connectRealtimeSync()
+}
+async function cashierLogout(){
+  syncReady=false;
+  if(realtimeChannel){
+    try{await sb.removeChannel(realtimeChannel)}catch(e){}
+    realtimeChannel=null
+  }
+  await sb.auth.signOut();
+  currentAuthEmail="";
+  closeModal();
+  showSyncLogin()
+}
+async function openSyncPanel(){
+  const {data}=await sb.auth.getSession();
+  if(!data.session){
+    showSyncLogin();
+    return
+  }
+
+  const initButton=(serverBase?.initialized===false||serverRevision===null)
+    ? `<button class="action primary" onclick="initializeRemoteFromLocal()">この端末のデータで共有開始</button>`
+    : "";
+
+  modal(`<h3>リアルタイム共有</h3>
+    <div style="font-size:12px;line-height:1.8">
+      <b>状態：</b>${syncReady?"接続中":"接続待ち"}<br>
+      <b>ログイン：</b>${esc(currentAuthEmail||data.session.user?.email||"")}<br>
+      <b>Revision：</b>${serverRevision??"—"}
+    </div>
+    <div class="actions" style="margin-top:12px">
+      ${initButton}
+      <button class="action" onclick="connectRealtimeSync()">再接続</button>
+      <button class="action danger" onclick="cashierLogout()">ログアウト</button>
+    </div>
+    <div class="card-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`)
+}
+function showInitialSyncPrompt(){
+  modal(`<h3>リアルタイム共有を開始</h3>
+    <div style="font-size:13px;line-height:1.7">
+      Supabase側の共有データはまだ空です。<br><br>
+      <b>現在の卓表・予定表・キャスト・顧客データが入っている端末</b>で
+      「この端末のデータで開始」を押してください。
+    </div>
+    <div class="card-actions">
+      <button class="btn" onclick="closeModal()">あとで</button>
+      <button class="btn primary" onclick="initializeRemoteFromLocal()">この端末のデータで開始</button>
+    </div>`)
+}
+function applyRemotePayload(payload){
+  if(!payload||payload.initialized===false)return;
+
+  const localHistory=db.history||[];
+  const incoming=Object.assign(defaultDB(),{
+    casts:deepClone(payload.casts||[]),
+    clients:deepClone(payload.clients||[]),
+    staff:deepClone(payload.staff||defaultDB().staff),
+    reservations:deepClone(payload.reservations||[]),
+    tables:deepClone(payload.tables||{})
+  });
+  incoming.history=localHistory;
+  db=incoming;
+
+  persistLocalOnly();
+  renderAll()
+}
+function mapById(arr){
+  const m=new Map();
+  (arr||[]).forEach(x=>{if(x?.id)m.set(x.id,deepClone(x))});
+  return m
+}
+function mergeIdArray(baseArr,localArr,remoteArr){
+  const base=mapById(baseArr);
+  const local=mapById(localArr);
+  const remote=mapById(remoteArr);
+
+  const touched=new Set([...base.keys(),...local.keys()]);
+  touched.forEach(id=>{
+    const b=base.get(id);
+    const l=local.get(id);
+
+    if(b&&!l){
+      remote.delete(id);
+      return
+    }
+    if(!b&&l){
+      remote.set(id,deepClone(l));
+      return
+    }
+    if(b&&l&&!sameJSON(b,l)){
+      remote.set(id,deepClone(l))
+    }
+  });
+
+  const remoteOrder=(remoteArr||[]).map(x=>x?.id).filter(id=>remote.has(id));
+  const extra=[...remote.keys()].filter(id=>!remoteOrder.includes(id));
+  return [...remoteOrder,...extra].map(id=>remote.get(id))
+}
+function mergeTables(baseTables,localTables,remoteTables){
+  const base=baseTables||{};
+  const local=localTables||{};
+  const remote=deepClone(remoteTables||{});
+  const keys=new Set([...Object.keys(base),...Object.keys(local)]);
+
+  keys.forEach(k=>{
+    const hasB=Object.prototype.hasOwnProperty.call(base,k);
+    const hasL=Object.prototype.hasOwnProperty.call(local,k);
+
+    if(hasB&&!hasL){
+      delete remote[k];
+      return
+    }
+    if(!hasB&&hasL){
+      remote[k]=deepClone(local[k]);
+      return
+    }
+    if(hasB&&hasL&&!sameJSON(base[k],local[k])){
+      remote[k]=deepClone(local[k])
+    }
+  });
+  return remote
+}
+function mergeLocalDelta(basePayload,localPayload,remotePayload){
+  const base=basePayload||{casts:[],clients:[],staff:[],reservations:[],tables:{}};
+  const local=localPayload||syncPayload();
+  const remote=remotePayload||{casts:[],clients:[],staff:[],reservations:[],tables:{}};
+
+  return {
+    initialized:true,
+    casts:mergeIdArray(base.casts,local.casts,remote.casts),
+    clients:mergeIdArray(base.clients,local.clients,remote.clients),
+    staff:mergeIdArray(base.staff,local.staff,remote.staff),
+    reservations:mergeIdArray(base.reservations,local.reservations,remote.reservations),
+    tables:mergeTables(base.tables,local.tables,remote.tables)
+  }
+}
+function scheduleRemoteSave(){
+  clearTimeout(remoteSaveTimer);
+  remoteSaveTimer=setTimeout(flushRemoteSave,180)
+}
+async function fetchRemoteState(){
+  const {data,error}=await sb
+    .from("fog_cashier_state")
+    .select("id,payload,revision,updated_at")
+    .eq("id",CASHIER_STATE_ID)
+    .single();
+
+  if(error)throw error;
+  return data
+}
+async function writeRemotePayload(payload,expectedRevision){
+  let q=sb
+    .from("fog_cashier_state")
+    .update({payload})
+    .eq("id",CASHIER_STATE_ID);
+
+  if(expectedRevision!==null&&expectedRevision!==undefined){
+    q=q.eq("revision",expectedRevision)
+  }
+
+  const {data,error}=await q
+    .select("id,payload,revision,updated_at")
+    .maybeSingle();
+
+  if(error)throw error;
+  return data
+}
+async function initializeRemoteFromLocal(){
+  try{
+    setSyncStatus("初期化中","busy");
+    const local=syncPayload();
+
+    const row=await fetchRemoteState();
+    if(row.payload?.initialized!==false){
+      serverRevision=Number(row.revision||0);
+      serverBase=deepClone(row.payload);
+      applyRemotePayload(row.payload);
+      syncReady=true;
+      closeModal();
+      setSyncStatus("同期","ok");
+      return
+    }
+
+    const updated=await writeRemotePayload(local,row.revision);
+    if(!updated)throw new Error("初期化中に別端末から更新されました");
+
+    serverRevision=Number(updated.revision||0);
+    serverBase=deepClone(updated.payload);
+    localDirty=false;
+    syncReady=true;
+
+    closeModal();
+    setSyncStatus("同期","ok");
+    toast("リアルタイム共有を開始しました")
+  }catch(error){
+    console.error("initialize realtime",error);
+    setSyncStatus("同期エラー","error");
+    toast("共有開始に失敗しました")
+  }
+}
+async function flushRemoteSave(){
+  if(!syncReady||remoteSaveInFlight||!localDirty)return;
+
+  remoteSaveInFlight=true;
+  setSyncStatus("保存中","busy");
+
+  try{
+    for(let attempt=0;attempt<3;attempt++){
+      const local=syncPayload();
+      const base=deepClone(serverBase||local);
+      const expected=serverRevision;
+
+      const updated=await writeRemotePayload(local,expected);
+
+      if(updated){
+        serverRevision=Number(updated.revision||0);
+        serverBase=deepClone(updated.payload);
+
+        if(sameJSON(syncPayload(),local)){
+          localDirty=false
+        }else{
+          localDirty=true
+        }
+
+        queuedRemoteRow=null;
+        setSyncStatus("同期","ok");
+        if(localDirty)scheduleRemoteSave();
+        return
+      }
+
+      // Revision conflict: keep our local changes, merge them over the latest
+      // server state, then retry against the latest revision.
+      const latest=await fetchRemoteState();
+      const currentLocal=syncPayload();
+      const merged=mergeLocalDelta(base,currentLocal,latest.payload);
+
+      serverRevision=Number(latest.revision||0);
+      serverBase=deepClone(latest.payload);
+
+      const localHistory=db.history||[];
+      db=Object.assign(defaultDB(),deepClone(merged));
+      db.history=localHistory;
+      persistLocalOnly();
+      renderAll();
+
+      const retry=await writeRemotePayload(merged,serverRevision);
+      if(retry){
+        serverRevision=Number(retry.revision||0);
+        serverBase=deepClone(retry.payload);
+        localDirty=false;
+        queuedRemoteRow=null;
+        setSyncStatus("同期","ok");
+        return
+      }
+    }
+
+    throw new Error("Realtime revision conflict")
+  }catch(error){
+    console.error("remote save",error);
+    localDirty=true;
+    setSyncStatus("再接続待ち","error");
+    setTimeout(()=>{
+      if(syncReady)scheduleRemoteSave()
+    },1500)
+  }finally{
+    remoteSaveInFlight=false
+  }
+}
+function handleRealtimeRow(row){
+  if(!row||row.id!==CASHIER_STATE_ID)return;
+
+  const rev=Number(row.revision||0);
+  if(serverRevision!==null&&rev<=serverRevision)return;
+
+  if(localDirty||remoteSaveInFlight){
+    queuedRemoteRow=row;
+    // Our optimistic write will detect the new revision and merge.
+    if(localDirty)scheduleRemoteSave();
+    return
+  }
+
+  serverRevision=rev;
+  serverBase=deepClone(row.payload);
+
+  if(row.payload?.initialized!==false){
+    applyRemotePayload(row.payload);
+    syncReady=true;
+    setSyncStatus("同期","ok")
+  }
+}
+async function subscribeRealtime(){
+  if(realtimeChannel){
+    try{await sb.removeChannel(realtimeChannel)}catch(e){}
+    realtimeChannel=null
+  }
+
+  realtimeChannel=sb
+    .channel("fog-cashier-main")
+    .on(
+      "postgres_changes",
+      {
+        event:"UPDATE",
+        schema:"public",
+        table:"fog_cashier_state",
+        filter:`id=eq.${CASHIER_STATE_ID}`
+      },
+      payload=>handleRealtimeRow(payload.new)
+    )
+    .subscribe((status,error)=>{
+      if(status==="SUBSCRIBED"){
+        if(syncReady)setSyncStatus("同期","ok")
+      }else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"){
+        console.error("realtime channel",status,error);
+        setSyncStatus("通信エラー","error")
+      }
+    })
+}
+async function connectRealtimeSync(){
+  if(syncConnecting)return;
+  syncConnecting=true;
+  setSyncStatus("接続中","busy");
+
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session){
+      syncReady=false;
+      showSyncLogin();
+      return
+    }
+
+    currentAuthEmail=session.user?.email||"";
+    hideSyncLogin();
+
+    await subscribeRealtime();
+    const row=await fetchRemoteState();
+
+    serverRevision=Number(row.revision||0);
+    serverBase=deepClone(row.payload);
+
+    if(row.payload?.initialized===false){
+      syncReady=false;
+      setSyncStatus("初期化待ち","busy");
+      showInitialSyncPrompt();
+      return
+    }
+
+    applyRemotePayload(row.payload);
+    localDirty=false;
+    syncReady=true;
+    setSyncStatus("同期","ok")
+  }catch(error){
+    console.error("connect realtime",error);
+    syncReady=false;
+    setSyncStatus("接続エラー","error");
+    toast("Supabaseへ接続できませんでした")
+  }finally{
+    syncConnecting=false
+  }
+}
+async function bootstrapRealtime(){
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session){
+      showSyncLogin();
+      return
+    }
+    currentAuthEmail=session.user?.email||"";
+    hideSyncLogin();
+    await connectRealtimeSync()
+  }catch(error){
+    console.error("bootstrap realtime",error);
+    showSyncLogin()
+  }
+}
 
 function renderAll(){renderTables();renderSchedule();document.getElementById("undoBtn").disabled=!(db.history?.length)}
 
@@ -782,11 +1408,15 @@ function renderTables(){
     const type=sessionType(s);
     const casts=sessionCastNames(s);
     const entries=sessionClientEntries(s);
+    const fieldNames=getFieldAssignments(s).map(a=>castById(a.castId)?.name).filter(Boolean);
 
-    // ご新規様はキャスト行の代わりに来店経緯を表示
     const topLine=type==="new"
-      ? (s.route||"来店経緯未設定")
-      : (casts.join("・")||"—");
+      ? ((s.route||"来店経緯未設定")+(fieldNames.length?"｜"+fieldNames.join("・"):""))
+      : type==="trial"
+        ? "体験"
+        : type==="industry"
+          ? ("同業｜"+(casts.join("・")||"—"))
+          : (casts.join("・")||"—");
 
     const clientsHtml=entries.length
       ? entries.map(entry=>{
@@ -812,19 +1442,54 @@ function renderTables(){
   requestAnimationFrame(fitTableText)
 }
 
+const RESERVATION_TIME_SLOTS=[
+  "20:00","20:30","21:00","21:30","22:00","22:30",
+  "23:00","23:30","24:00","24:30","前半","後半"
+];
+function reservationTimeOptions(selected="20:00"){
+  let options=RESERVATION_TIME_SLOTS.map(v=>
+    `<option value="${v}" ${v===selected?"selected":""}>${v}</option>`
+  ).join("");
+  if(selected&&!RESERVATION_TIME_SLOTS.includes(selected)){
+    options+=`<option value="${esc(selected)}" selected>${esc(selected)}（旧設定）</option>`
+  }
+  return options
+}
+function reservationTimeRank(value){
+  const i=RESERVATION_TIME_SLOTS.indexOf(value);
+  return i===-1?999:i
+}
+
 function renderSchedule(){
-  const plan=db.reservations.filter(r=>r.kind!=="companion").sort((a,b)=>a.time.localeCompare(b.time));
-  const comp=db.reservations.filter(r=>r.kind==="companion").sort((a,b)=>a.time.localeCompare(b.time));
-  const make=arr=>arr.length?arr.map(r=>`<div class="reserve">
-    <div class="reserve-top"><span>${esc(r.time)}</span><span>${r.arrived?"来店済":"未来店"}</span></div>
-    <div class="reserve-main">${esc(r.castName)} / ${esc(r.clientName)}</div>
-    <div class="reserve-actions">
-      ${!r.arrived?`<button class="mini primary" onclick="chooseTableForReservation('${r.id}')">来店</button>`:""}
-      <button class="mini" onclick="editReservation('${r.id}')">編集</button>
-      <button class="mini" onclick="deleteReservation('${r.id}')">削除</button>
-    </div></div>`).join(""):'<div class="empty">なし</div>';
+  const byTime=(a,b)=>reservationTimeRank(a.time)-reservationTimeRank(b.time);
+  const plan=db.reservations.filter(r=>r.kind==="plan"||(!r.kind)).sort(byTime);
+  const comp=db.reservations.filter(r=>r.kind==="companion");
+  const industry=db.reservations.filter(r=>r.kind==="industry").sort(byTime);
+
+  const make=arr=>arr.length?arr.map(r=>{
+    const cat=CATEGORY_DEFS[r.category]||CATEGORY_DEFS.none;
+    const timeText=r.kind==="companion"?"同伴":esc(r.time||"");
+    const companionText=r.kind==="plan"&&Number(r.companionCount||0)>0
+      ? ` / お連れ様×${Number(r.companionCount)}`
+      : "";
+    const industryText=r.kind==="industry"
+      ? ` / ${yen(r.industryFee||30000)}`
+      : "";
+    return `<div class="reserve">
+      <div class="reserve-top"><span>${timeText}</span><span>${r.arrived?"来店済":"未来店"}</span></div>
+      <div class="reserve-main">${esc(r.castName)} / ${esc(r.clientName)}</div>
+      <div class="reserve-sub">区分：${esc(cat.label)}${companionText}${industryText}</div>
+      <div class="reserve-actions">
+        ${!r.arrived?`<button class="mini primary" onclick="chooseTableForReservation('${r.id}')">来店</button>`:""}
+        <button class="mini" onclick="editReservation('${r.id}')">編集</button>
+        <button class="mini" onclick="deleteReservation('${r.id}')">削除</button>
+      </div>
+    </div>`
+  }).join(""):'<div class="empty">なし</div>';
+
   document.getElementById("planList").innerHTML=make(plan);
   document.getElementById("companionList").innerHTML=make(comp);
+  document.getElementById("industryList").innerHTML=make(industry);
 }
 
 function modal(html){document.getElementById("modalCard").innerHTML=html;document.getElementById("modal").classList.add("open")}
@@ -878,7 +1543,7 @@ function saveStaffAdd(){
   snapshot("内勤追加");
   db.staff=db.staff||[];
   db.staff.push({id:uid("staff"),name});
-  localStorage.setItem(DBKEY,JSON.stringify(db));
+  persistLocal();
   openStaffManager();
   toast("内勤を追加しました")
 }
@@ -900,7 +1565,7 @@ function saveStaffEdit(id){
   Object.values(db.tables).forEach(t=>{
     if(t&&t.receivedByStaffId===id)t.receivedByStaffName=name
   });
-  localStorage.setItem(DBKEY,JSON.stringify(db));
+  persistLocal();
   openStaffManager();
   toast("内勤名を修正しました")
 }
@@ -908,7 +1573,7 @@ function deleteStaff(id){
   const s=staffById(id); if(!s)return;
   snapshot("内勤削除");
   db.staff=(db.staff||[]).filter(x=>x.id!==id);
-  localStorage.setItem(DBKEY,JSON.stringify(db));
+  persistLocal();
   openStaffManager();
   toast("内勤を削除しました")
 }
@@ -919,7 +1584,7 @@ function saveCast(){
   if(!name)return toast("名前を入力");
   snapshot("キャスト登録");
   db.casts.push({id:uid("cast"),name});
-  localStorage.setItem(DBKEY,JSON.stringify(db));
+  persistLocal();
   renderAll();
   openMaster();
   toast("キャスト登録しました")
@@ -966,7 +1631,7 @@ function saveCastEdit(castId){
     if(r.castId===castId)r.castName=name;
   });
 
-  localStorage.setItem(DBKEY,JSON.stringify(db));
+  persistLocal();
   renderAll();
   openMaster();
   toast("キャスト名を修正しました")
@@ -1026,7 +1691,7 @@ function saveClientEdit(clientId){
     }
   });
 
-  localStorage.setItem(DBKEY,JSON.stringify(db));
+  persistLocal();
   renderAll();
   openCastClients(client.castId);
   toast("クライアント情報を修正しました")
@@ -1051,7 +1716,7 @@ function saveClient(castId){
   if(!name)return toast("お客様の名前を入力してください");
   snapshot("顧客登録");
   db.clients.push({id:uid("client"),castId,name,glow:document.getElementById("cGlow").checked,gold:document.getElementById("cGold").checked,black:document.getElementById("cBlack").checked});
-  localStorage.setItem(DBKEY,JSON.stringify(db));
+  persistLocal();
   renderAll();
   openCastClients(castId);
   toast("クライアント登録しました")
@@ -1067,8 +1732,7 @@ function openGuide(table=null){
         <select id="gType" onchange="guideTypeChanged()">
           <option value="existing">既存クライアント</option>
           <option value="new">ご新規様</option>
-          <option value="companion">お連れ様</option>
-          <option value="field">場内</option>
+          <option value="industry">同業</option>
         </select>
       </div>
 
@@ -1100,6 +1764,17 @@ function openGuide(table=null){
             <button type="button" class="btn primary" onclick="saveQuickClientRegister('g')">登録</button>
           </div>
         </div>
+      </div>
+
+      <div class="field full" id="gCompanionWrap">
+        <label>お連れ様人数</label>
+        <select id="gCompanionCount" onchange="renderCompanionFees('g')">${countOptions(0,10,0)}</select>
+        <div class="grid" id="gCompanionFees"></div>
+      </div>
+
+      <div class="field full" id="gNewCountWrap" style="display:none">
+        <label>ご新規様人数</label>
+        <select id="gNewGuestCount">${countOptions(1,10,1)}</select>
       </div>
 
       <div class="field" id="gRouteField" style="display:none">
@@ -1135,26 +1810,17 @@ function openGuide(table=null){
         </div>
       </div>
 
-      <div class="field full" id="gFieldPlanWrap" style="display:none">
-        <label>場内情報</label>
-        <div class="grid">
-          <div class="field">
-            <label>場内プラン</label>
-            <select id="gFieldPlan">${fieldPlanOptions()}</select>
-          </div>
-          <div class="field">
-            <label>場内になった時間</label>
-            <input id="gFieldStart" type="time" value="${nowHHMM()}">
-          </div>
-        </div>
+      <div class="field full" id="gIndustryWrap" style="display:none">
+        <label>同業料金</label>
+        <select id="gIndustryFee">${industryFeeOptions(30000)}</select>
       </div>
 
       <div class="field">
         <label>入店時間</label>
-        <input id="gTime" type="time" value="${nowHHMM()}">
+        <select id="gTime">${businessTimeOptions(nowBusinessHHMM())}</select>
       </div>
 
-      <div class="field full">
+      <div class="field full" id="gCategoryWrap">
         <label>区分</label>
         <select id="gCategory">${categoryOptions("none")}</select>
       </div>
@@ -1182,15 +1848,15 @@ function openGuide(table=null){
 }
 function guideTypeChanged(){
   const t=document.getElementById("gType").value;
-  const casts=document.getElementById("gCastWrap");
-  const clients=document.getElementById("gClientWrap");
-  const route=document.getElementById("gRouteField");
 
-  casts.style.display=t==="new"?"none":"grid";
-  clients.style.display=(t==="existing"||t==="companion")?"grid":"none";
-  route.style.display=t==="new"?"grid":"none";
+  document.getElementById("gCastWrap").style.display=t==="new"?"none":"grid";
+  document.getElementById("gClientWrap").style.display=(t==="new"||t==="industry")?"none":"grid";
+  document.getElementById("gCompanionWrap").style.display=t==="existing"?"grid":"none";
+  document.getElementById("gNewCountWrap").style.display=t==="new"?"grid":"none";
+  document.getElementById("gRouteField").style.display=t==="new"?"grid":"none";
   document.getElementById("gNewPayWrap").style.display=t==="new"?"grid":"none";
-  document.getElementById("gFieldPlanWrap").style.display=t==="field"?"grid":"none";
+  document.getElementById("gIndustryWrap").style.display=t==="industry"?"grid":"none";
+  document.getElementById("gCategoryWrap").style.display=t==="new"||t==="industry"?"none":"grid";
 
   syncCategoryWithType(t,"gCategory");
   if(t==="new")newPlanChanged("g");
@@ -1202,43 +1868,41 @@ function saveGuide(){
 
   const type=document.getElementById("gType").value;
   const castIds=type==="new"?[]:collectDynamicValues("gCastList",".gCastDyn");
-  const clientIds=(type==="existing"||type==="companion")
-    ? collectDynamicValues("gClientList",".gClientDyn")
-    : [];
+  const clientIds=(type==="new"||type==="industry")?[]:collectDynamicValues("gClientList",".gClientDyn");
 
-  if(type!=="new"&&!castIds.length)return toast("キャストを選択してください");
+  if((type==="existing"||type==="industry")&&!castIds.length)return toast("キャストを選択してください");
   if(type==="existing"&&!clientIds.length)return toast("クライアントを選択してください");
 
-  // Safety: only keep clients belonging to selected casts.
   const selectedCastSet=new Set(castIds);
   const filteredClientIds=clientIds.filter(id=>{
-    if(id==="__companion__")return true;
     const c=clientById(id);
     return c&&selectedCastSet.has(c.castId)
   });
 
-  snapshot("案内");
+  const companionCount=type==="existing"?Number(document.getElementById("gCompanionCount").value||0):0;
+  const companionFees=type==="existing"?collectCompanionFeeInputs("g"):[];
 
-  const companionFees=(type==="existing"||type==="companion")
-    ? collectCompanionFees("gClientList",".gClientDyn")
-    : [];
-
+  const newGuestCount=type==="new"?Number(document.getElementById("gNewGuestCount").value||1):0;
   const newPlan=type==="new"?(document.getElementById("gNewPlan").value||"A"):"";
   const newCampaign=type==="new"?document.getElementById("gNewCampaign").checked:false;
   const newAmount=type==="new"?Number(document.getElementById("gNewAmount").value||0):0;
   const staffId=type==="new"?document.getElementById("gNewStaff").value:"";
+  const industryFee=type==="industry"?Number(document.getElementById("gIndustryFee").value||30000):0;
 
-  const fieldPlan=type==="field"?Number(document.getElementById("gFieldPlan").value||0):0;
-  const fieldStartTime=type==="field"?(document.getElementById("gFieldStart").value||nowHHMM()):"";
+  snapshot("案内");
 
   db.tables[table]={
     type,
+    baseType:type,
     castIds,
     clientIds:filteredClientIds,
+    companionCount,
     companionFees,
-    entryTime:document.getElementById("gTime").value||nowHHMM(),
+    newGuestCount,
+    fieldAssignments:[],
+    entryTime:document.getElementById("gTime").value||nowBusinessHHMM(),
     route:type==="new"?document.getElementById("gRoute").value:"",
-    category:document.getElementById("gCategory").value||"none",
+    category:type==="new"?"new":type==="industry"?"none":(document.getElementById("gCategory").value||"none"),
     crown:document.getElementById("gCrown").checked,
 
     newPlan,
@@ -1246,16 +1910,104 @@ function saveGuide(){
     newAmount,
     receivedByStaffId:staffId,
     receivedByStaffName:staffById(staffId)?.name||"",
-
-    fieldPlan,
-    fieldStartTime,
-    fieldNextCheckTime:needsFieldRecheck(fieldPlan)?addMinutesHHMM(fieldStartTime,60):"",
+    industryFee,
 
     state:"occupied"
   };
 
   closeModal();
   saveDB()
+}
+
+function seatHistoryHtml(s,currentTable){
+  const history=Array.isArray(s.seatHistory)?s.seatHistory:[];
+  if(!history.length)return "";
+  return `<div class="move-history"><b>卓移動履歴</b><br>${
+    history.map((x,i)=>{
+      const end=x.to||((i===history.length-1)?"現在":"");
+      return `${esc(x.table==="RVIP"?"RV":x.table)}：${esc(x.from||"未設定")}〜${esc(end)}`
+    }).join("<br>")
+  }</div>`
+}
+function askStartTableMove(table){
+  const s=db.tables[table];
+  if(!s)return;
+  modal(`<h3>卓移動</h3>
+    <div style="font-weight:900;font-size:16px">${table==="RVIP"?"RV":table} を卓移動しますか？</div>
+    <div class="card-actions">
+      <button class="btn" onclick="openTable('${table}')">いいえ</button>
+      <button class="btn primary" onclick="startTableMove('${table}')">はい</button>
+    </div>`)
+}
+function startTableMove(table){
+  moveMode={from:table};
+  closeModal();
+  toast("移動先の卓をタップしてください")
+}
+function handleTableTap(table){
+  if(moveMode)return chooseMoveDestination(table);
+  openTable(table)
+}
+function chooseMoveDestination(table){
+  const from=moveMode?.from;
+  if(!from){
+    moveMode=null;
+    return openTable(table)
+  }
+  if(table===from){
+    moveMode=null;
+    toast("卓移動をキャンセルしました");
+    return
+  }
+  if(db.tables[table]){
+    toast("その卓は使用中です");
+    return
+  }
+  modal(`<h3>卓移動</h3>
+    <div style="font-weight:900;font-size:16px">
+      ${from==="RVIP"?"RV":from} → ${table==="RVIP"?"RV":table}
+    </div>
+    <div style="margin-top:8px">ここに移動しますか？</div>
+    <div class="card-actions">
+      <button class="btn" onclick="closeModal()">いいえ</button>
+      <button class="btn primary" onclick="confirmTableMove('${table}')">はい</button>
+    </div>`)
+}
+function confirmTableMove(to){
+  const from=moveMode?.from;
+  if(!from||!db.tables[from]||db.tables[to]){
+    moveMode=null;
+    closeModal();
+    return toast("卓移動できませんでした")
+  }
+
+  const s=db.tables[from];
+  const movedAt=nowBusinessHHMM();
+
+  snapshot("卓移動");
+
+  if(!Array.isArray(s.seatHistory)||!s.seatHistory.length){
+    s.seatHistory=[{
+      table:from,
+      from:s.entryTime||"",
+      to:""
+    }]
+  }
+
+  const last=s.seatHistory[s.seatHistory.length-1];
+  if(last&&!last.to)last.to=movedAt;
+  s.seatHistory.push({table:to,from:movedAt,to:""});
+
+  s.moveHistory=Array.isArray(s.moveHistory)?s.moveHistory:[];
+  s.moveHistory.push({from,to,time:movedAt});
+
+  db.tables[to]=s;
+  delete db.tables[from];
+
+  moveMode=null;
+  closeModal();
+  saveDB();
+  toast(`${from==="RVIP"?"RV":from} → ${to==="RVIP"?"RV":to} に移動しました`)
 }
 
 function openTable(table){
@@ -1272,24 +2024,42 @@ function openTable(table){
   }
 
   const type=sessionType(s);
-  const convert=(type==="new"||type==="companion")
-    ? `<button class="action primary" onclick="openFieldConvert('${table}','${type}')">${type==="new"?"ご新規様":"お連れ様"}→場内</button>`
-    : "";
+
+  if(type==="trial"){
+    modal(`<div style="margin-bottom:12px">
+        <div class="table-number-move">${table==="RVIP"?"RV":table}</div>
+      </div>
+      <div style="font-size:15px;font-weight:900">体験</div>
+      <div style="font-size:12px;margin-top:5px">設定時間：${esc(s.entryTime||"")}</div>
+      ${seatHistoryHtml(s,table)}
+      <div class="actions" style="margin-top:12px">
+        <button class="action danger" onclick="clearTable('${table}')">体験終了</button>
+        <button class="action" onclick="askStartTableMove('${table}')">卓移動</button>
+      </div>
+      <div class="card-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`);
+    return
+  }
 
   const casts=sessionCastNames(s).join("・")||"—";
   const clients=sessionClientNames(s).join("・")||"—";
   const cat=CATEGORY_DEFS[legacyCategory(s)]||CATEGORY_DEFS.none;
+  const fields=getFieldAssignments(s);
+  const capacity=fieldCapacity(s);
+  const remaining=remainingFieldSlots(s);
 
+  const compCount=Math.max(0,Number(s.companionCount||0));
   const compFees=Array.isArray(s.companionFees)?s.companionFees:[];
-  const compDetail=compFees.length
+  const compDetail=type==="existing"&&compCount>0
     ? `<div style="margin-top:8px;padding:8px;border:1px solid #ddd;border-radius:8px">
-         <b>お連れ様料金</b><br>${compFees.map((v,i)=>`お連れ様${compFees.length>1?i+1:""}：${yen(v)}`).join("<br>")}
+         <b>お連れ様</b>：${compCount}名<br>
+         ${Array.from({length:compCount},(_,i)=>`お連れ様${compCount>1?i+1:""}：${yen(compFees[i]??3000)}`).join("<br>")}
        </div>`
     : "";
 
   const newDetail=type==="new"
     ? `<div style="margin-top:8px;padding:8px;border:1px solid #ddd;border-radius:8px">
          <b>ご新規様 受付</b><br>
+         人数：${Number(s.newGuestCount||1)}名<br>
          来店経緯：${esc(s.route||"未設定")}<br>
          プラン：${esc(s.newPlan||"未設定")}<br>
          金額：${yen(s.newAmount||0)}${s.newCampaign?"（キャンペーン）":""}<br>
@@ -1297,41 +2067,59 @@ function openTable(table){
        </div>`
     : "";
 
-  const fieldDetail=type==="field"
+  const industryDetail=type==="industry"
     ? `<div style="margin-top:8px;padding:8px;border:1px solid #ddd;border-radius:8px">
-         <b>場内情報</b><br>
-         プラン：${s.fieldPlan?yen(s.fieldPlan):"未設定"}<br>
-         場内開始：${esc(s.fieldStartTime||"未設定")}
-         ${needsFieldRecheck(s.fieldPlan)
-           ? `<br>次回再延長確認：<b>${esc(s.fieldNextCheckTime||addMinutesHHMM(s.fieldStartTime,60)||"未設定")}</b>`
-           : ""}
+         <b>同業</b><br>
+         料金：${yen(s.industryFee||30000)}
        </div>`
     : "";
 
-  const fieldConfirm=type==="field"&&needsFieldRecheck(s.fieldPlan)
-    ? `<button class="action primary" onclick="confirmFieldExtension('${table}')">再延長確認済み</button>`
+  const fieldDetail=fields.length
+    ? `<div style="margin-top:8px;padding:8px;border:1px solid #ddd;border-radius:8px">
+         <b>場内 ${fields.length}/${capacity}</b><br>
+         ${fields.map((a,i)=>{
+           const name=castById(a.castId)?.name||"未設定";
+           const recheck=needsFieldRecheck(a.plan)
+             ? `<br>次回再延長確認：<b>${esc(a.nextCheckTime||addMinutesHHMM(a.startTime,60)||"未設定")}</b>
+                <br><button class="mini primary" onclick="confirmFieldExtension('${table}','${a.id}')">再延長確認済み</button>`
+             : "";
+           return `<div style="margin-top:${i?8:4}px;padding-top:${i?8:0}px;${i?"border-top:1px solid #eee":""}">
+             ${i+1}. ${esc(name)} / ${a.plan?yen(a.plan):"未設定"} / ${esc(a.startTime||"未設定")}
+             ${recheck}
+           </div>`
+         }).join("")}
+       </div>`
     : "";
 
-  modal(`<h3>${table==="RVIP"?"RV":table}</h3>
+  const fieldButton=remaining>0
+    ? `<button class="action primary" onclick="openFieldConvert('${table}')">場内 +1（残り${remaining}）</button>`
+    : "";
+
+  modal(`<div style="margin-bottom:12px">
+      <div class="table-number-move">${table==="RVIP"?"RV":table}</div>
+    </div>
     <div style="font-size:13px;line-height:1.7">
+      <b>種類：</b>${esc(baseTypeLabel(type))}<br>
       <b>キャスト：</b>${esc(casts)}<br>
       <b>クライアント：</b>${esc(clients)}<br>
-      <b>入店時間：</b>${esc(s.entryTime||"")}<br>
-      <b>区分：</b>${esc(cat.label)}
+      <b>入店時間：</b>${esc(s.entryTime||"")}
+      ${type==="existing"?`<br><b>区分：</b>${esc(cat.label)}`:""}
     </div>
 
     ${compDetail}
     ${newDetail}
+    ${industryDetail}
     ${fieldDetail}
+    ${seatHistoryHtml(s,table)}
 
     <div class="actions" style="margin-top:12px">
-      ${convert}
-      ${fieldConfirm}
+      ${fieldButton}
       <button class="action" onclick="openCurrentTableEdit('${table}')">卓情報修正</button>
       <button class="action" onclick="toggleCheck('${table}')">${s.state==="check"?"CHECK解除":"CHECK"}</button>
       <button class="action" onclick="toggleCrown('${table}')">👑</button>
       <button class="action danger" onclick="checkout('${table}')">退店→バッシング</button>
       <button class="action" onclick="clearTable('${table}')">卓クリア</button>
+      <button class="action" onclick="askStartTableMove('${table}')">卓移動</button>
     </div>
 
     <div class="card-actions">
@@ -1339,25 +2127,38 @@ function openTable(table){
     </div>
   `)
 }
-function confirmFieldExtension(table){
+function confirmFieldExtension(table,assignmentId){
   const s=db.tables[table];
-  if(!s||!needsFieldRecheck(s.fieldPlan))return;
+  if(!s)return;
+  const fields=getFieldAssignments(s);
+  const a=fields.find(x=>x.id===assignmentId);
+  if(!a||!needsFieldRecheck(a.plan))return;
+
   snapshot("場内再延長確認");
-  const base=s.fieldNextCheckTime||addMinutesHHMM(s.fieldStartTime,60)||nowHHMM();
-  s.fieldNextCheckTime=addMinutesHHMM(base,60);
-  localStorage.setItem(DBKEY,JSON.stringify(db));
+  const base=a.nextCheckTime||addMinutesHHMM(a.startTime,60)||nowHHMM();
+  a.nextCheckTime=addMinutesHHMM(base,60);
+  s.fieldAssignments=fields;
+
+  persistLocal();
   openTable(table);
   toast("再延長確認を更新しました")
 }
-function openFieldConvert(table,source){
+function openFieldConvert(table){
   if(!db.casts.length)return openCastAdd();
 
-  modal(`<h3>${source==="new"?"ご新規様":"お連れ様"} → 場内</h3>
+  const s=db.tables[table];
+  if(!s)return;
+  const remaining=remainingFieldSlots(s);
+  if(remaining<=0)return toast("場内にできる人数の上限です");
+
+  const label=sessionType(s)==="new"?"ご新規様":"お連れ様";
+
+  modal(`<h3>${label} → 場内</h3>
+    <div style="font-size:12px;margin-bottom:10px">場内可能：残り${remaining}名</div>
     <div class="grid">
       <div class="field full">
         <label>場内指名キャスト</label>
-        <div class="dynamic-list" id="fieldCastList">${dynamicCastRows([],"fieldCastDyn")}</div>
-        <div style="margin-top:6px"><button type="button" class="add-one" onclick="addDynamicCast('fieldCastList','fieldCastDyn')">キャスト +1</button></div>
+        <select id="fieldCast">${castOptions()}</select>
       </div>
       <div class="field">
         <label>場内プラン</label>
@@ -1365,42 +2166,51 @@ function openFieldConvert(table,source){
       </div>
       <div class="field">
         <label>場内になった時間</label>
-        <input id="fieldStart" type="time" value="${nowHHMM()}">
+        <select id="fieldStart">${businessTimeOptions(nowBusinessHHMM())}</select>
       </div>
     </div>
     <div class="card-actions">
-      <button class="btn" onclick="closeModal()">キャンセル</button>
-      <button class="btn primary" onclick="saveFieldConvert('${table}')">場内へ切替</button>
+      <button class="btn" onclick="openTable('${table}')">キャンセル</button>
+      <button class="btn primary" onclick="saveFieldConvert('${table}')">場内追加</button>
     </div>
   `)
 }
 function saveFieldConvert(table){
-  const castIds=collectDynamicValues("fieldCastList",".fieldCastDyn");
-  if(!castIds.length)return toast("キャストを選択してください");
+  const s=db.tables[table];
+  if(!s)return;
+  if(remainingFieldSlots(s)<=0)return toast("場内にできる人数の上限です");
+
+  const castId=document.getElementById("fieldCast").value;
+  if(!castId)return toast("キャストを選択してください");
 
   const plan=Number(document.getElementById("fieldPlan").value||0);
   if(!plan)return toast("場内プランを選択してください");
 
-  const startTime=document.getElementById("fieldStart").value||nowHHMM();
-  const s=db.tables[table];
-  if(!s)return;
+  const startTime=document.getElementById("fieldStart").value||nowBusinessHHMM();
 
-  snapshot("場内切替");
-  s.type="field";
-  s.castIds=castIds;
-  s.clientIds=[];
-  s.companionFees=[];
-  s.category="green";
-  s.companion=false;
-  s.companionField=false;
+  snapshot("場内追加");
 
-  s.fieldPlan=plan;
-  s.fieldStartTime=startTime;
-  s.fieldNextCheckTime=needsFieldRecheck(plan)?addMinutesHHMM(startTime,60):"";
+  const fields=getFieldAssignments(s);
+  fields.push({
+    id:uid("field"),
+    castId,
+    plan,
+    startTime,
+    nextCheckTime:needsFieldRecheck(plan)?addMinutesHHMM(startTime,60):""
+  });
+
+  s.baseType=sessionType(s);
+  s.type=s.baseType;
+  s.fieldAssignments=fields;
+
+  // v20以前の単一場内フィールドは今後使わない
+  s.fieldPlan=0;
+  s.fieldStartTime="";
+  s.fieldNextCheckTime="";
 
   closeModal();
   saveDB();
-  toast("場内へ切り替えました")
+  toast("場内を追加しました")
 }
 
 function openCurrentTableEdit(table){
@@ -1408,8 +2218,10 @@ function openCurrentTableEdit(table){
   if(!s)return;
 
   const type=sessionType(s);
-  const castIds=sessionCastIds(s);
+  const castIds=(Array.isArray(s.castIds)?s.castIds:[]).filter(Boolean);
   const clientIds=sessionClientIds(s);
+  const compCount=Math.max(0,Number(s.companionCount ?? (Array.isArray(s.companionFees)?s.companionFees.length:0)));
+  const compFees=Array.isArray(s.companionFees)?s.companionFees:[];
 
   modal(`<h3>${table==="RVIP"?"RV":table} / 卓情報修正</h3>
     <div class="grid">
@@ -1418,8 +2230,7 @@ function openCurrentTableEdit(table){
         <select id="editType" onchange="editTypeChanged()">
           <option value="existing" ${type==="existing"?"selected":""}>既存クライアント</option>
           <option value="new" ${type==="new"?"selected":""}>ご新規様</option>
-          <option value="companion" ${type==="companion"?"selected":""}>お連れ様</option>
-          <option value="field" ${type==="field"?"selected":""}>場内</option>
+          <option value="industry" ${type==="industry"?"selected":""}>同業</option>
         </select>
       </div>
 
@@ -1433,7 +2244,7 @@ function openCurrentTableEdit(table){
 
       <div class="field full" id="editClientWrap">
         <label>クライアント</label>
-        <div class="dynamic-list" id="editClientList">${dynamicClientRows(clientIds,"editClientDyn",castIds,s.companionFees||[])}</div>
+        <div class="dynamic-list" id="editClientList">${dynamicClientRows(clientIds,"editClientDyn",castIds)}</div>
         <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
           <button type="button" class="add-one" onclick="addDynamicClient('editClientList','editClientDyn','editCastList','.editCastDyn')">クライアント +1</button>
           <button type="button" class="add-one" onclick="toggleQuickClientRegister('edit')">＋新規クライアント登録</button>
@@ -1451,6 +2262,24 @@ function openCurrentTableEdit(table){
             <button type="button" class="btn primary" onclick="saveQuickClientRegister('edit')">登録</button>
           </div>
         </div>
+      </div>
+
+      <div class="field full" id="editCompanionWrap">
+        <label>お連れ様人数</label>
+        <select id="editCompanionCount" onchange="renderCompanionFees('edit')">${countOptions(0,10,compCount)}</select>
+        <div class="grid" id="editCompanionFees">${companionFeeInputs("edit",compCount,compFees)}</div>
+      </div>
+
+      <div class="field full" id="editNewCountWrap" style="display:none">
+        <label>ご新規様人数</label>
+        <select id="editNewGuestCount">${countOptions(1,10,Number(s.newGuestCount||1))}</select>
+      </div>
+
+      <div class="field" id="editRouteWrap" style="display:none">
+        <label>来店経緯</label>
+        <select id="editRoute">
+          ${["飛び込み","YN","G","道"].map(v=>`<option value="${v}" ${s.route===v?"selected":""}>${v}</option>`).join("")}
+        </select>
       </div>
 
       <div class="field full" id="editNewPayWrap" style="display:none">
@@ -1481,26 +2310,17 @@ function openCurrentTableEdit(table){
         </div>
       </div>
 
-      <div class="field full" id="editFieldPlanWrap" style="display:none">
-        <label>場内情報</label>
-        <div class="grid">
-          <div class="field">
-            <label>場内プラン</label>
-            <select id="editFieldPlan">${fieldPlanOptions(s.fieldPlan||"")}</select>
-          </div>
-          <div class="field">
-            <label>場内になった時間</label>
-            <input id="editFieldStart" type="time" value="${esc(s.fieldStartTime||nowHHMM())}">
-          </div>
-        </div>
+      <div class="field full" id="editIndustryWrap" style="display:none">
+        <label>同業料金</label>
+        <select id="editIndustryFee">${industryFeeOptions(s.industryFee||30000)}</select>
       </div>
 
       <div class="field full">
         <label>入店時間</label>
-        <input id="editTableTime" type="time" value="${esc(s.entryTime||nowHHMM())}">
+        <select id="editTableTime">${businessTimeOptions(s.entryTime||nowBusinessHHMM())}</select>
       </div>
 
-      <div class="field full">
+      <div class="field full" id="editCategoryWrap">
         <label>区分</label>
         <select id="editCategory">${categoryOptions(legacyCategory(s))}</select>
       </div>
@@ -1511,6 +2331,10 @@ function openCurrentTableEdit(table){
           <label class="ck"><input type="checkbox" id="editCrown" ${s.crown?"checked":""}>👑 主役席</label>
         </div>
       </div>
+    </div>
+
+    <div style="font-size:12px;color:#666;margin-top:8px">
+      ※場内は種類ではなく派生情報として保持されます。現在の場内：${fieldCount(s)}名
     </div>
 
     <div class="card-actions">
@@ -1525,12 +2349,15 @@ function editTypeChanged(){
   const t=document.getElementById("editType").value;
 
   document.getElementById("editCastWrap").style.display=t==="new"?"none":"grid";
-  document.getElementById("editClientWrap").style.display=(t==="existing"||t==="companion")?"grid":"none";
+  document.getElementById("editClientWrap").style.display=(t==="new"||t==="industry")?"none":"grid";
+  document.getElementById("editCompanionWrap").style.display=t==="existing"?"grid":"none";
+  document.getElementById("editNewCountWrap").style.display=t==="new"?"grid":"none";
+  document.getElementById("editRouteWrap").style.display=t==="new"?"grid":"none";
   document.getElementById("editNewPayWrap").style.display=t==="new"?"grid":"none";
-  document.getElementById("editFieldPlanWrap").style.display=t==="field"?"grid":"none";
+  document.getElementById("editIndustryWrap").style.display=t==="industry"?"grid":"none";
+  document.getElementById("editCategoryWrap").style.display=t==="new"||t==="industry"?"none":"grid";
 
   syncCategoryWithType(t,"editCategory");
-  if(t==="new"&&!document.getElementById("editNewAmount").value)newPlanChanged("edit");
   refreshLinkedClients()
 }
 function saveCurrentTableEdit(table){
@@ -1539,56 +2366,61 @@ function saveCurrentTableEdit(table){
 
   const type=document.getElementById("editType").value;
   const castIds=type==="new"?[]:collectDynamicValues("editCastList",".editCastDyn");
-  const clientIds=(type==="existing"||type==="companion")
-    ? collectDynamicValues("editClientList",".editClientDyn")
-    : [];
-  const companionFees=(type==="existing"||type==="companion")
-    ? collectCompanionFees("editClientList",".editClientDyn")
-    : [];
+  const clientIds=(type==="new"||type==="industry")?[]:collectDynamicValues("editClientList",".editClientDyn");
 
-  if(type!=="new"&&!castIds.length)return toast("キャストを選択してください");
+  if((type==="existing"||type==="industry")&&!castIds.length)return toast("キャストを選択してください");
+  if(type==="existing"&&!clientIds.length)return toast("クライアントを選択してください");
 
   const selectedCastSet=new Set(castIds);
   const filteredClientIds=clientIds.filter(id=>{
-    if(id==="__companion__")return true;
     const c=clientById(id);
     return c&&selectedCastSet.has(c.castId)
   });
 
+  const oldFields=getFieldAssignments(s);
+  const companionCount=type==="existing"?Number(document.getElementById("editCompanionCount").value||0):0;
+  const companionFees=type==="existing"?collectCompanionFeeInputs("edit"):[];
+  const newGuestCount=type==="new"?Number(document.getElementById("editNewGuestCount").value||1):0;
+  const newCapacity=type==="new"?newGuestCount:type==="existing"?companionCount:0;
+
+  if(oldFields.length>newCapacity){
+    return toast(`場内が${oldFields.length}名いるため、人数を${oldFields.length}名未満にはできません`)
+  }
+
   snapshot("卓情報修正");
 
   s.type=type;
+  s.baseType=type;
   s.castIds=castIds;
   s.clientIds=filteredClientIds;
+  s.companionCount=companionCount;
   s.companionFees=companionFees;
+  s.newGuestCount=newGuestCount;
+  s.fieldAssignments=oldFields;
   s.entryTime=document.getElementById("editTableTime").value||s.entryTime;
-  s.category=document.getElementById("editCategory").value||"none";
+  s.category=type==="new"?"new":type==="industry"?"none":(document.getElementById("editCategory").value||"none");
+  s.industryFee=type==="industry"?Number(document.getElementById("editIndustryFee").value||30000):0;
   s.crown=document.getElementById("editCrown").checked;
 
   if(type==="new"){
+    s.route=document.getElementById("editRoute").value||"";
     s.newPlan=document.getElementById("editNewPlan").value||"A";
     s.newCampaign=document.getElementById("editNewCampaign").checked;
     s.newAmount=Number(document.getElementById("editNewAmount").value||0);
     s.receivedByStaffId=document.getElementById("editNewStaff").value||"";
     s.receivedByStaffName=staffById(s.receivedByStaffId)?.name||"";
+  }else{
+    s.route="";
   }
 
-  if(type==="field"){
-    s.fieldPlan=Number(document.getElementById("editFieldPlan").value||0);
-    s.fieldStartTime=document.getElementById("editFieldStart").value||nowHHMM();
-    if(needsFieldRecheck(s.fieldPlan)){
-      if(!s.fieldNextCheckTime)s.fieldNextCheckTime=addMinutesHHMM(s.fieldStartTime,60)
-    }else{
-      s.fieldNextCheckTime=""
-    }
-  }
-
+  // Legacy fields clear
   s.castId=null;s.castId2=null;s.castName="";s.castName2="";
   s.clientId=null;s.clientId2=null;s.clientName="";s.clientName2="";
   s.classification="";
-  s.companion=type==="companion";
+  s.companion=false;
   s.quick=false;s.glow=false;s.gold=false;s.black=false;
   s.companionField=false;s.companionFieldCastId=null;s.companionFieldCastName="";
+  s.fieldPlan=0;s.fieldStartTime="";s.fieldNextCheckTime="";
 
   closeModal();
   saveDB();
@@ -1603,16 +2435,111 @@ function clearTable(t){snapshot("卓クリア");delete db.tables[t];closeModal()
 
 function openReservation(id=null){
   if(!db.casts.length)return openCastAdd();
+
   const r=id?db.reservations.find(x=>x.id===id):null;
-  modal(`<h3>${r?"予定編集":"予定登録"}</h3><div class="grid"><div class="field"><label>区分</label><select id="rKind"><option value="plan" ${r?.kind!=="companion"?"selected":""}>予定</option><option value="companion" ${r?.kind==="companion"?"selected":""}>同伴</option></select></div><div class="field"><label>時間</label><input id="rTime" type="time" value="${r?.time||nowHHMM()}"></div><div class="field"><label>キャスト</label><select id="rCast" onchange="refreshRClients()">${castOptions(r?.castId||"")}</select></div><div class="field"><label>クライアント</label><select id="rClient">${r?clientOptions(r.castId,r.clientId):'<option value="">キャストを選択</option>'}</select></div><div class="field full"><label>未登録なら表示名</label><input id="rName" value="${esc(r?.clientName||"")}"></div></div><div class="card-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveReservation('${r?.id||""}')">保存</button></div>`)
+  const selectedTime=r?.time||"20:00";
+  const companionCount=Number(r?.companionCount||0);
+
+  modal(`<h3>${r?"予定編集":"予定登録"}</h3>
+    <div class="grid">
+      <div class="field">
+        <label>予定 / 同伴</label>
+        <select id="rKind" onchange="reservationKindChanged()">
+          <option value="plan" ${(!r||r?.kind==="plan"||!r?.kind)?"selected":""}>予定</option>
+          <option value="companion" ${r?.kind==="companion"?"selected":""}>同伴</option>
+          <option value="industry" ${r?.kind==="industry"?"selected":""}>同業</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>区分</label>
+        <select id="rCategory">${categoryOptions(r?.category||"none")}</select>
+      </div>
+
+      <div class="field" id="rTimeWrap">
+        <label>時間帯</label>
+        <select id="rTime">${reservationTimeOptions(selectedTime)}</select>
+      </div>
+
+      <div class="field" id="rCompanionWrap">
+        <label>お連れ様人数</label>
+        <select id="rCompanionCount">${countOptions(0,10,companionCount)}</select>
+      </div>
+
+      <div class="field" id="rIndustryWrap" style="display:none">
+        <label>同業料金</label>
+        <select id="rIndustryFee">${industryFeeOptions(r?.industryFee||30000)}</select>
+      </div>
+
+      <div class="field">
+        <label>キャスト</label>
+        <select id="rCast" onchange="refreshRClients()">${castOptions(r?.castId||"")}</select>
+      </div>
+
+      <div class="field" id="rClientWrap">
+        <label>クライアント</label>
+        <select id="rClient">${r?clientOptions(r.castId,r.clientId):'<option value="">キャストを選択</option>'}</select>
+      </div>
+
+      <div class="field full" id="rNameWrap">
+        <label>未登録なら表示名</label>
+        <input id="rName" value="${esc(r?.clientName||"")}">
+      </div>
+    </div>
+
+    <div class="card-actions">
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+      <button class="btn primary" onclick="saveReservation('${r?.id||""}')">保存</button>
+    </div>
+  `);
+
+  reservationKindChanged()
+}
+function reservationKindChanged(){
+  const kind=document.getElementById("rKind").value;
+  document.getElementById("rTimeWrap").style.display=kind==="companion"?"none":"grid";
+  document.getElementById("rCompanionWrap").style.display=kind==="plan"?"grid":"none";
+  document.getElementById("rIndustryWrap").style.display=kind==="industry"?"grid":"none";
+  document.getElementById("rClientWrap").style.display=kind==="industry"?"none":"grid";
+  document.getElementById("rNameWrap").style.display=kind==="industry"?"none":"grid"
 }
 function refreshRClients(){document.getElementById("rClient").innerHTML=clientOptions(document.getElementById("rCast").value)}
 function saveReservation(id){
-  const castId=document.getElementById("rCast").value,clientId=document.getElementById("rClient").value,typed=document.getElementById("rName").value.trim(),c=clientById(clientId),cast=castById(castId);
-  if(!castId||(!clientId&&!typed))return toast("入力してください");
-  snapshot(id?"予定編集":"予定登録");const obj={id:id||uid("r"),kind:document.getElementById("rKind").value,time:document.getElementById("rTime").value,castId,castName:cast.name,clientId:clientId||null,clientName:c?.name||typed,arrived:rArrived(id)};
-  if(id){const i=db.reservations.findIndex(x=>x.id===id);db.reservations[i]=obj}else db.reservations.push(obj);
-  closeModal();saveDB()
+  const castId=document.getElementById("rCast").value;
+  const clientId=document.getElementById("rClient").value;
+  const typed=document.getElementById("rName").value.trim();
+  const c=clientById(clientId);
+  const cast=castById(castId);
+  const kind=document.getElementById("rKind").value;
+
+  if(!castId)return toast("キャストを選択してください");
+  if(kind!=="industry"&&!clientId&&!typed)return toast("クライアントを入力してください");
+
+  snapshot(id?"予定編集":"予定登録");
+
+  const obj={
+    id:id||uid("r"),
+    kind,
+    time:kind==="companion"?"":document.getElementById("rTime").value,
+    category:document.getElementById("rCategory").value||"none",
+    companionCount:kind==="plan"?Number(document.getElementById("rCompanionCount").value||0):0,
+    industryFee:kind==="industry"?Number(document.getElementById("rIndustryFee").value||30000):0,
+    castId,
+    castName:cast.name,
+    clientId:kind==="industry"?null:(clientId||null),
+    clientName:kind==="industry"?"同業":(c?.name||typed),
+    arrived:rArrived(id)
+  };
+
+  if(id){
+    const i=db.reservations.findIndex(x=>x.id===id);
+    db.reservations[i]=obj
+  }else{
+    db.reservations.push(obj)
+  }
+
+  closeModal();
+  saveDB()
 }
 function rArrived(id){return id?(db.reservations.find(x=>x.id===id)?.arrived||false):false}
 function editReservation(id){openReservation(id)}
@@ -1623,8 +2550,76 @@ function chooseTableForReservation(id){
   modal(`<h3>${esc(r.castName)} / ${esc(r.clientName)}</h3><div class="field"><label>案内卓</label><select id="arriveTable">${empty.map(k=>`<option value="${k}">${k==="RVIP"?"RV":k}</option>`).join("")}</select></div><div class="card-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="assignReservation('${id}')">来店→卓へ</button></div>`)
 }
 function assignReservation(id){
-  const r=db.reservations.find(x=>x.id===id),table=document.getElementById("arriveTable").value;if(!r||!table)return;
-  snapshot("予定客来店");db.tables[table]={type:r.kind==="companion"?"companion":"existing",castIds:r.castId?[r.castId]:[],clientIds:r.clientId?[r.clientId]:[],entryTime:nowHHMM(),category:r.kind==="companion"?"companion":"pink",crown:false,state:"occupied"};r.arrived=true;closeModal();switchScreen("board");saveDB()
+  const r=db.reservations.find(x=>x.id===id);
+  const table=document.getElementById("arriveTable").value;
+  if(!r||!table)return;
+
+  snapshot("予定客来店");
+
+  const isIndustry=r.kind==="industry";
+
+  db.tables[table]={
+    type:isIndustry?"industry":"existing",
+    baseType:isIndustry?"industry":"existing",
+    castIds:r.castId?[r.castId]:[],
+    clientIds:isIndustry?[]:(r.clientId?[r.clientId]:[]),
+    companionCount:r.kind==="plan"?Number(r.companionCount||0):0,
+    companionFees:r.kind==="plan"?Array.from({length:Number(r.companionCount||0)},()=>3000):[],
+    newGuestCount:0,
+    fieldAssignments:[],
+    entryTime:nowBusinessHHMM(),
+    category:isIndustry?"none":(r.category||"none"),
+    industryFee:isIndustry?Number(r.industryFee||30000):0,
+    crown:false,
+    state:"occupied"
+  };
+
+  r.arrived=true;
+  closeModal();
+  switchScreen("board");
+  saveDB()
+}
+
+function openTrialTablePicker(){
+  const empty=Object.keys(BOXES).filter(k=>!db.tables[k]);
+  if(!empty.length)return toast("空き卓がありません");
+
+  modal(`<h3>体験</h3>
+    <div class="field">
+      <label>卓番</label>
+      <select id="trialTable">
+        ${empty.map(k=>`<option value="${k}">${k==="RVIP"?"RV":k}</option>`).join("")}
+      </select>
+    </div>
+    <div class="card-actions">
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+      <button class="btn primary" onclick="saveTrialTable()">反映</button>
+    </div>`)
+}
+function saveTrialTable(){
+  const table=document.getElementById("trialTable").value;
+  if(!table||db.tables[table])return toast("卓を設定できません");
+
+  snapshot("体験卓設定");
+
+  db.tables[table]={
+    type:"trial",
+    baseType:"trial",
+    castIds:[],
+    clientIds:[],
+    companionCount:0,
+    companionFees:[],
+    newGuestCount:0,
+    fieldAssignments:[],
+    entryTime:nowBusinessHHMM(),
+    category:"none",
+    crown:false,
+    state:"occupied"
+  };
+
+  closeModal();
+  saveDB();
+  toast(`${table==="RVIP"?"RV":table} に体験を反映しました`)
 }
 
 function showCheck(){const rows=Object.entries(db.tables).filter(([k,s])=>s&&(s.state==="check"||s.state==="cleaning"));modal(`<h3>CHECK / バッシング</h3>${rows.length?rows.map(([k,s])=>`<div class="reserve"><div class="reserve-main">${k==="RVIP"?"RV":k} / ${s.state==="cleaning"?"バッシング中":esc(castName(s))}</div></div>`).join(""):'<div class="empty">なし</div>'}<div class="card-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`)}
@@ -1637,16 +2632,18 @@ function switchScreen(name){
   document.querySelector(`.tab[data-screen="${name}"]`).classList.add("active");
 }
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>switchScreen(t.dataset.screen));
-document.querySelectorAll(".hotspot").forEach(h=>h.onclick=()=>openTable(h.dataset.table));
+document.querySelectorAll(".hotspot").forEach(h=>h.onclick=()=>handleTableTap(h.dataset.table));
 document.getElementById("guideBtn").onclick=()=>openGuide();
 document.getElementById("reserveBtn").onclick=()=>openReservation();
+document.getElementById("trialBtn").onclick=openTrialTablePicker;
 document.getElementById("checkBtn").onclick=showCheck;
 document.getElementById("masterBtn").onclick=openMaster;
 document.getElementById("undoBtn").onclick=undo;
-document.getElementById("shareBtn").onclick=()=>toast("共有は次の同期版で仕上げます");
+document.getElementById("shareBtn").onclick=()=>openSyncPanel();
 
 function tick(){document.getElementById("clock").textContent=nowHHMM()}tick();setInterval(tick,15000);
 renderAll();
+bootstrapRealtime();
 </script>
 </body>
 </html>
