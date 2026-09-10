@@ -7,8 +7,8 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="fog-cashier-version" content="32">
-<title>SWAMP FOG CASHIER v32 REALTIME</title>
+<meta name="fog-cashier-version" content="33">
+<title>SWAMP FOG CASHIER v33 REALTIME</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#efefec;color:#111;
@@ -385,7 +385,7 @@ input,select{width:100%;border:1px solid #bdbdb7;background:#fff;border-radius:8
 </div>
 <div class="app">
 <header class="top">
-  <div class="brand">SWAMP FOG CASHIER <span class="app-ver">Ver.32</span></div>
+  <div class="brand">SWAMP FOG CASHIER <span class="app-ver">Ver.33</span></div>
   <div class="tabs">
     <button class="tab active" data-screen="board">卓表</button>
     <button class="tab" data-screen="schedule">予定表</button>
@@ -471,7 +471,7 @@ let moveMode=null;
 const SUPABASE_URL='https://sffzcooyulzjrxkxvcrx.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_3cmJ6BW-qBh6N3ThfwebJA_iw9tR_cP';
 const CASHIER_STATE_ID="main";
-const APP_VERSION="32";
+const APP_VERSION="33";
 const SYNC_EMAIL_KEY="fogCashierSyncEmail";
 
 const sb=window.supabase.createClient(
@@ -768,17 +768,18 @@ function selectedCastIds(containerId,selector){
     .filter(Boolean)
 }
 function clientOptionsForCasts(castIds,selected=""){
-  const allowed=new Set(castIds.filter(Boolean));
-  const clients=db.clients.filter(c=>allowed.has(c.castId));
+  const allowed=new Set((castIds||[]).filter(Boolean));
+  if(!allowed.size)return '<option value="">先にキャストを選択</option>';
 
-  let html='<option value="">選択</option>';
+  const clients=(db.clients||[]).filter(c=>allowed.has(c.castId));
+  let html='<option value="">クライアントを選択</option>';
+
   clients.forEach(c=>{
     html+=`<option value="${c.id}" ${c.id===selected?"selected":""}>${esc(c.name)}</option>`
   });
 
-  if(selected&&!clients.some(c=>c.id===selected)){
-    const c=clientById(selected);
-    if(c)html+=`<option value="${c.id}" selected>${esc(c.name)}</option>`
+  if(!clients.length){
+    return '<option value="">登録クライアントなし</option>'
   }
   return html
 }
@@ -886,13 +887,18 @@ function dynamicCastRows(ids=[],prefix="gCastDyn"){
 }
 function dynamicClientRows(ids=[],prefix="gClientDyn",castIds=[]){
   const list=ids.length?ids:[""];
-  return list.map((id,i)=>`
+  const firstCast=(castIds||[]).find(Boolean)||"";
+
+  return list.map((id,i)=>{
+    const rowCast=(castIds||[])[i]||firstCast;
+    return `
     <div class="dynamic-row" data-dynamic="client">
-      <select class="${prefix}">
-        ${clientOptionsForCasts(castIds,id)}
+      <select class="${prefix}" data-client-index="${i}">
+        ${clientOptionsForCasts(rowCast?[rowCast]:[],id)}
       </select>
       ${i===0?"":`<button type="button" class="remove-one" onclick="this.closest('.dynamic-row').remove()">×</button>`}
-    </div>`).join("")
+    </div>`
+  }).join("")
 }
 function addDynamicCast(containerId,prefix){
   const c=document.getElementById(containerId);
@@ -905,13 +911,21 @@ function addDynamicCast(containerId,prefix){
 }
 function addDynamicClient(containerId,prefix,castContainerId,castSelector){
   const c=document.getElementById(containerId);
-  const castIds=selectedCastIds(castContainerId,castSelector);
+  const castSelects=[...document.querySelectorAll(`#${castContainerId} ${castSelector}`)];
+  const castIds=castSelects.map(x=>x.value).filter(Boolean);
   if(!castIds.length)return toast("先にキャストを選択してください");
+
+  const existingCount=c.querySelectorAll(".dynamic-row").length;
+  const rowCast=castSelects[existingCount]?.value || castIds[0];
 
   const row=document.createElement("div");
   row.className="dynamic-row";
   row.dataset.dynamic="client";
-  row.innerHTML=`<select class="${prefix}">${clientOptionsForCasts(castIds)}</select><button type="button" class="remove-one">×</button>`;
+  row.innerHTML=`
+    <select class="${prefix}" data-client-index="${existingCount}">
+      ${clientOptionsForCasts(rowCast?[rowCast]:[])}
+    </select>
+    <button type="button" class="remove-one">×</button>`;
   row.querySelector(".remove-one").onclick=()=>row.remove();
   c.appendChild(row)
 }
@@ -919,10 +933,17 @@ function collectDynamicValues(containerId,selector){
   return [...document.querySelectorAll(`#${containerId} ${selector}`)].map(x=>x.value).filter(Boolean)
 }
 function refreshClientListFor(castContainerId,castSelector,clientContainerId,clientSelector){
-  const castIds=selectedCastIds(castContainerId,castSelector);
-  document.querySelectorAll(`#${clientContainerId} ${clientSelector}`).forEach(sel=>{
+  const castSelects=[...document.querySelectorAll(`#${castContainerId} ${castSelector}`)];
+  const clientSelects=[...document.querySelectorAll(`#${clientContainerId} ${clientSelector}`)];
+  const firstCast=castSelects.map(x=>x.value).find(Boolean)||"";
+
+  clientSelects.forEach((sel,i)=>{
+    const rowCast=castSelects[i]?.value || firstCast;
     const current=sel.value;
-    sel.innerHTML=clientOptionsForCasts(castIds,current)
+    const currentClient=clientById(current);
+    const validCurrent=!!(currentClient&&rowCast&&currentClient.castId===rowCast);
+
+    sel.innerHTML=clientOptionsForCasts(rowCast?[rowCast]:[],validCurrent?current:"")
   })
 }
 function refreshLinkedClients(){
@@ -1643,7 +1664,14 @@ function closeModal(){document.getElementById("modal").classList.remove("open")}
 document.getElementById("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
 
 function castOptions(sel=""){return '<option value="">選択</option>'+db.casts.map(c=>`<option value="${c.id}" ${c.id===sel?"selected":""}>${esc(c.name)}</option>`).join("")}
-function clientOptions(castId,sel=""){return '<option value="">選択</option>'+db.clients.filter(c=>c.castId===castId).map(c=>`<option value="${c.id}" ${c.id===sel?"selected":""}>${esc(c.name)}</option>`).join("")}
+function clientOptions(castId,sel=""){
+  if(!castId)return '<option value="">先にキャストを選択</option>';
+  const clients=(db.clients||[]).filter(c=>c.castId===castId);
+  if(!clients.length)return '<option value="">登録クライアントなし</option>';
+  return '<option value="">クライアントを選択</option>'+clients.map(c=>
+    `<option value="${c.id}" ${c.id===sel?"selected":""}>${esc(c.name)}</option>`
+  ).join("")
+}
 
 function openMaster(){
   modal(`<h3>キャスト / クライアント</h3>
@@ -2624,7 +2652,7 @@ function openReservation(id=null){
 
       <div class="field" id="rClientWrap">
         <label>クライアント</label>
-        <select id="rClient">${r?clientOptions(r.castId,r.clientId):'<option value="">キャストを選択</option>'}</select>
+        <select id="rClient">${r?clientOptions(r.castId,(clientById(r.clientId)?.castId===r.castId?r.clientId:"")):'<option value="">先にキャストを選択</option>'}</select>
       </div>
 
       <div class="field full" id="rNameWrap">
@@ -2649,7 +2677,11 @@ function reservationKindChanged(){
   document.getElementById("rClientWrap").style.display=kind==="industry"?"none":"grid";
   document.getElementById("rNameWrap").style.display=kind==="industry"?"none":"grid"
 }
-function refreshRClients(){document.getElementById("rClient").innerHTML=clientOptions(document.getElementById("rCast").value)}
+function refreshRClients(){
+  const castId=document.getElementById("rCast").value;
+  const client=document.getElementById("rClient");
+  if(client)client.innerHTML=clientOptions(castId,"")
+}
 function saveReservation(id){
   const castId=document.getElementById("rCast").value;
   const clientId=document.getElementById("rClient").value;
