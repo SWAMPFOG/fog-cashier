@@ -7,8 +7,8 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="fog-cashier-version" content="31">
-<title>SWAMP FOG CASHIER v31 REALTIME</title>
+<meta name="fog-cashier-version" content="32">
+<title>SWAMP FOG CASHIER v32 REALTIME</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#efefec;color:#111;
@@ -385,7 +385,7 @@ input,select{width:100%;border:1px solid #bdbdb7;background:#fff;border-radius:8
 </div>
 <div class="app">
 <header class="top">
-  <div class="brand">SWAMP FOG CASHIER <span class="app-ver">Ver.31</span></div>
+  <div class="brand">SWAMP FOG CASHIER <span class="app-ver">Ver.32</span></div>
   <div class="tabs">
     <button class="tab active" data-screen="board">卓表</button>
     <button class="tab" data-screen="schedule">予定表</button>
@@ -471,7 +471,7 @@ let moveMode=null;
 const SUPABASE_URL='https://sffzcooyulzjrxkxvcrx.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_3cmJ6BW-qBh6N3ThfwebJA_iw9tR_cP';
 const CASHIER_STATE_ID="main";
-const APP_VERSION="31";
+const APP_VERSION="32";
 const SYNC_EMAIL_KEY="fogCashierSyncEmail";
 
 const sb=window.supabase.createClient(
@@ -1597,10 +1597,12 @@ function reservationTimeRank(value){
 }
 
 function renderSchedule(){
-  const byTime=(a,b)=>reservationTimeRank(a.time)-reservationTimeRank(b.time);
-  const plan=db.reservations.filter(r=>r.kind==="plan"||(!r.kind)).sort(byTime);
-  const comp=db.reservations.filter(r=>r.kind==="companion");
-  const industry=db.reservations.filter(r=>r.kind==="industry").sort(byTime);
+  if(!Array.isArray(db.reservations))db.reservations=[];
+
+  const byTime=(a,b)=>reservationTimeRank(a?.time)-reservationTimeRank(b?.time);
+  const plan=db.reservations.filter(r=>r&&(r.kind==="plan"||!r.kind)).sort(byTime);
+  const comp=db.reservations.filter(r=>r&&r.kind==="companion");
+  const industry=db.reservations.filter(r=>r&&r.kind==="industry").sort(byTime);
 
   const make=arr=>arr.length?arr.map(r=>{
     const cat=CATEGORY_DEFS[r.category]||CATEGORY_DEFS.none;
@@ -1611,9 +1613,13 @@ function renderSchedule(){
     const industryText=r.kind==="industry"
       ? ` / ${yen(r.industryFee||30000)}`
       : "";
+
     return `<div class="reserve">
-      <div class="reserve-top"><span>${timeText}</span><span>${r.arrived?"来店済":"未来店"}</span></div>
-      <div class="reserve-main">${esc(r.castName)} / ${esc(r.clientName)}</div>
+      <div class="reserve-top">
+        <span>${timeText}</span>
+        <span>${r.arrived?"来店済":"未来店"}</span>
+      </div>
+      <div class="reserve-main">${esc(r.castName||"")} / ${esc(r.clientName||"")}</div>
       <div class="reserve-sub">区分：${esc(cat.label)}${companionText}${industryText}</div>
       <div class="reserve-actions">
         ${!r.arrived?`<button class="mini primary" onclick="chooseTableForReservation('${r.id}')">来店</button>`:""}
@@ -1623,9 +1629,13 @@ function renderSchedule(){
     </div>`
   }).join(""):'<div class="empty">なし</div>';
 
-  document.getElementById("planList").innerHTML=make(plan);
-  document.getElementById("companionList").innerHTML=make(comp);
-  document.getElementById("industryList").innerHTML=make(industry);
+  const planEl=document.getElementById("planList");
+  const compEl=document.getElementById("companionList");
+  const industryEl=document.getElementById("industryList");
+
+  if(planEl)planEl.innerHTML=make(plan);
+  if(compEl)compEl.innerHTML=make(comp);
+  if(industryEl)industryEl.innerHTML=make(industry);
 }
 
 function modal(html){document.getElementById("modalCard").innerHTML=html;document.getElementById("modal").classList.add("open")}
@@ -2667,19 +2677,31 @@ function saveReservation(id){
     arrived:rArrived(id)
   };
 
+  if(!Array.isArray(db.reservations))db.reservations=[];
+
   if(id){
     const i=db.reservations.findIndex(x=>x.id===id);
-    db.reservations[i]=obj
+    if(i>=0)db.reservations[i]=obj;
+    else db.reservations.push(obj)
   }else{
     db.reservations.push(obj)
   }
 
   closeModal();
-  saveDB()
+  switchScreen("schedule");
+  saveDB();
+  toast(id?"予定を更新しました":"予定を登録しました")
 }
 function rArrived(id){return id?(db.reservations.find(x=>x.id===id)?.arrived||false):false}
 function editReservation(id){openReservation(id)}
-function deleteReservation(id){snapshot("予定削除");db.reservations=db.reservations.filter(r=>r.id!==id);saveDB()}
+function deleteReservation(id){
+  if(!Array.isArray(db.reservations))db.reservations=[];
+  snapshot("予定削除");
+  db.reservations=db.reservations.filter(r=>r&&r.id!==id);
+  saveDB();
+  switchScreen("schedule");
+  toast("予定を削除しました")
+}
 function chooseTableForReservation(id){
   const r=db.reservations.find(x=>x.id===id);if(!r)return;
   const empty=Object.keys(BOXES).filter(k=>!db.tables[k]);
@@ -2761,13 +2783,28 @@ function saveTrialTable(){
 function showCheck(){const rows=Object.entries(db.tables).filter(([k,s])=>s&&(s.state==="check"||s.state==="cleaning"));modal(`<h3>CHECK / バッシング</h3>${rows.length?rows.map(([k,s])=>`<div class="reserve"><div class="reserve-main">${k==="RVIP"?"RV":k} / ${s.state==="cleaning"?"バッシング中":esc(castName(s))}</div></div>`).join(""):'<div class="empty">なし</div>'}<div class="card-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`)}
 
 function switchScreen(name){
+  if(name!=="board"&&name!=="schedule")name="board";
   currentScreen=name;
-  document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));
-  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
-  document.getElementById(name==="board"?"boardScreen":"scheduleScreen").classList.add("active");
-  document.querySelector(`.tab[data-screen="${name}"]`).classList.add("active");
+
+  const board=document.getElementById("boardScreen");
+  const schedule=document.getElementById("scheduleScreen");
+
+  board?.classList.toggle("active",name==="board");
+  schedule?.classList.toggle("active",name==="schedule");
+
+  document.querySelectorAll(".tab").forEach(x=>{
+    x.classList.toggle("active",x.dataset.screen===name)
+  });
+
+  if(name==="schedule")renderSchedule()
 }
-document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>switchScreen(t.dataset.screen));
+document.querySelectorAll(".tab").forEach(t=>{
+  t.type="button";
+  t.onclick=e=>{
+    e.preventDefault();
+    switchScreen(t.dataset.screen)
+  }
+});
 document.querySelectorAll(".hotspot").forEach(h=>h.onclick=()=>handleTableTap(h.dataset.table));
 document.getElementById("guideBtn").onclick=()=>openGuide();
 document.getElementById("reserveBtn").onclick=()=>openReservation();
