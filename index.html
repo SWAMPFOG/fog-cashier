@@ -5,19 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>SWAMP FOG CASHIER Ver.39</title>
+<title>SWAMP FOG CASHIER Ver.40</title>
 <style>
 html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif}
 #loading{height:100%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#222}
 </style>
 </head>
 <body>
-<div id="loading">SWAMP FOG CASHIER 読み込み中…</div>
+<div id="loading">SWAMP FOG CASHIER Ver.40 読み込み中…</div>
 <script>
 (async()=>{
   try{
     const sourceUrl="https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/2e75a08f27775fa5d3c5e1b2b574928509dc09dc/index.html";
-    const res=await fetch(sourceUrl);
+    const res=await fetch(sourceUrl,{cache:"no-store"});
     if(!res.ok)throw new Error("本体取得 " + res.status);
     let html=await res.text();
 
@@ -26,40 +26,13 @@ html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-sys
       html=html.replace(from,to);
     };
 
-    replaceOnce('<meta name="fog-cashier-version" content="38">','<meta name="fog-cashier-version" content="39">');
-    replaceOnce('<title>SWAMP FOG CASHIER v38 REALTIME</title>','<title>SWAMP FOG CASHIER v39 REALTIME</title>');
-    replaceOnce('<span class="app-ver">Ver.38</span>','<span class="app-ver">Ver.39</span>');
-    replaceOnce('const APP_VERSION="38";','const APP_VERSION="39";');
-    if(html.includes('alt="SWAMP FOG 卓表 Ver.38"'))html=html.replace('alt="SWAMP FOG 卓表 Ver.38"','alt="SWAMP FOG 卓表 Ver.39"');
+    replaceOnce('<meta name="fog-cashier-version" content="38">','<meta name="fog-cashier-version" content="40">');
+    replaceOnce('<title>SWAMP FOG CASHIER v38 REALTIME</title>','<title>SWAMP FOG CASHIER v40 REALTIME</title>');
+    replaceOnce('<span class="app-ver">Ver.38</span>','<span class="app-ver">Ver.40</span>');
+    replaceOnce('const APP_VERSION="38";','const APP_VERSION="40";');
+    if(html.includes('alt="SWAMP FOG 卓表 Ver.38"'))html=html.replace('alt="SWAMP FOG 卓表 Ver.38"','alt="SWAMP FOG 卓表 Ver.40"');
 
-    const cssAnchor='.hotspot{\n  transform:none;\n}\n';
-    const css=`
-/* Ver.39: 卓表右側の顧客区分をフルカラー表示 */
-.color-legend{
-  position:absolute;left:73.55%;top:11.65%;width:22.95%;height:22.45%;z-index:3;
-  display:grid;grid-template-rows:repeat(8,1fr);gap:1.2%;padding:1.45% 1.7%;
-  background:#fff;border:1.2px solid #aaa;border-radius:34% / 18%;pointer-events:none;
-}
-.color-legend .lg{display:flex;align-items:center;justify-content:center;min-height:0;border-radius:999px;color:#111;font-size:clamp(5.5px,.68vw,9px);font-weight:800;line-height:1;white-space:nowrap;overflow:hidden}
-.color-legend .lg-gray{color:#fff}
-`;
-    if(!html.includes(cssAnchor))throw new Error("カラー設定位置が見つかりません");
-    html=html.replace(cssAnchor,cssAnchor+css);
-
-    const legend=`        <div class="color-legend" id="colorLegend" aria-hidden="true">
-          <div class="lg t-orange">ご新規様・お連れ様</div>
-          <div class="lg t-pink">初回指名・リピート</div>
-          <div class="lg t-green">場内指名</div>
-          <div class="lg t-blue">2リピ</div>
-          <div class="lg t-purple">クイック</div>
-          <div class="lg t-yellow">光アイスペール</div>
-          <div class="lg t-red">ゴールドカード</div>
-          <div class="lg t-gray lg-gray">ブラックカード</div>
-        </div>\n`;
-    const firstHotspot='        <button class="hotspot"';
-    if(!html.includes(firstHotspot))throw new Error("卓表位置が見つかりません");
-    html=html.replace(firstHotspot,legend+firstHotspot);
-
+    // Ver.40: Ver.39で追加した区分オーバーレイを撤去し、区分ダブりを解消。
     document.open();
     document.write(html);
     document.close();
