@@ -18,10 +18,7 @@ html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-sys
 <script>
 (async()=>{
   try{
-    const cacheBust=Date.now();
     const sourceUrl="https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/2e75a08f27775fa5d3c5e1b2b574928509dc09dc/index.html";
-    const floorUrl=`https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/main/v40/floor40.jpg?v=${cacheBust}`;
-
     const res=await fetch(sourceUrl,{cache:"no-store"});
     if(!res.ok)throw new Error("本体取得 "+res.status);
     let html=await res.text();
@@ -35,13 +32,34 @@ html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-sys
     replaceOnce('<title>SWAMP FOG CASHIER v38 REALTIME</title>','<title>SWAMP FOG CASHIER v40 REALTIME</title>');
     replaceOnce('<span class="app-ver">Ver.38</span>','<span class="app-ver">Ver.40</span>');
     replaceOnce('const APP_VERSION="38";','const APP_VERSION="40";');
+    html=html.replace('alt="SWAMP FOG 卓表 Ver.38"','alt="SWAMP FOG 卓表 Ver.40"');
 
-    const floorImgPattern=/<img id="floorImg" src="[^"]+" alt="SWAMP FOG 卓表 Ver\.38">/;
-    if(!floorImgPattern.test(html))throw new Error("卓表画像の差し替え位置が見つかりません");
-    html=html.replace(
-      floorImgPattern,
-      `<img id="floorImg" src="${floorUrl}" alt="SWAMP FOG 卓表 Ver.40">`
-    );
+    const legendCss=`
+.color-legend-v40{
+  position:absolute;left:74.9%;top:11.15%;width:21.15%;height:24.75%;z-index:20;
+  box-sizing:border-box;display:grid;grid-template-rows:repeat(8,1fr);gap:1.6%;
+  padding:3.3% 9.5%;background:#fff;border:1.5px solid #999;border-radius:34% / 18%;
+  pointer-events:none;user-select:none;
+}
+.color-legend-v40 .lg{display:flex;align-items:center;justify-content:center;min-height:0;border-radius:999px;color:#111;font-size:clamp(6px,.72vw,11px);font-weight:800;line-height:1;white-space:nowrap;overflow:hidden}
+.color-legend-v40 .o{background:#ff9b6a}.color-legend-v40 .p{background:#f58bc6}.color-legend-v40 .g{background:#a9e58f}.color-legend-v40 .b{background:#89dde5}.color-legend-v40 .v{background:#9c73e8}.color-legend-v40 .y{background:#ffe497}.color-legend-v40 .r{background:#ff7070}.color-legend-v40 .k{background:#777;color:#fff}
+`;
+    html=html.replace('</style>',legendCss+'</style>');
+
+    const legend=`<div class="color-legend-v40" aria-hidden="true">
+      <div class="lg o">ご新規様お連れ様</div>
+      <div class="lg p">初回指名 リピート</div>
+      <div class="lg g">場内指名</div>
+      <div class="lg b">2リピ</div>
+      <div class="lg v">クイック</div>
+      <div class="lg y">光アイスペール</div>
+      <div class="lg r">ゴールドカード</div>
+      <div class="lg k">ブラックカード</div>
+    </div>`;
+
+    const floorImgPattern=/(<img id="floorImg"[^>]*>)/;
+    if(!floorImgPattern.test(html))throw new Error("卓表画像が見つかりません");
+    html=html.replace(floorImgPattern,'$1'+legend);
 
     document.open();
     document.write(html);
