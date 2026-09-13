@@ -12,33 +12,42 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Apply Ver.39 full-color patch
+      - name: Patch index through GitHub API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('index.html')
-          s = p.read_text(encoding='utf-8')
+          python3 - <<'PY'
+          import os, json, base64, urllib.request
+
+          token = os.environ['GH_TOKEN']
+          repo = os.environ['GH_REPO']
+          api = f'https://api.github.com/repos/{repo}/contents/index.html'
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'cashier-v39-patch'
+          }
+
+          req = urllib.request.Request(api + '?ref=main', headers=headers)
+          with urllib.request.urlopen(req) as r:
+              meta = json.load(r)
+          text = base64.b64decode(meta['content']).decode('utf-8')
 
           replacements = [
               ('<meta name="fog-cashier-version" content="38">', '<meta name="fog-cashier-version" content="39">'),
               ('<title>SWAMP FOG CASHIER v38 REALTIME</title>', '<title>SWAMP FOG CASHIER v39 REALTIME</title>'),
               ('<span class="app-ver">Ver.38</span>', '<span class="app-ver">Ver.39</span>'),
               ('alt="SWAMP FOG 卓表 Ver.38"', 'alt="SWAMP FOG 卓表 Ver.39"'),
-              ('const APP_VERSION="38";', 'const APP_VERSION="39";'),
+              ('const APP_VERSION="38";', 'const APP_VERSION="39";')
           ]
           for old, new in replacements:
-              if old not in s:
-                  raise SystemExit(f'Expected text not found: {old}')
-              s = s.replace(old, new, 1)
+              if old not in text:
+                  raise SystemExit('missing expected v38 text: ' + old)
+              text = text.replace(old, new, 1)
 
-          css_anchor = '''.hotspot{
-  transform:none;
-}
-'''
+          css_anchor = ".hotspot{\n  transform:none;\n}\n"
           css_add = '''
 /* Ver.39: 卓表右側の顧客区分凡例をフルカラー表示 */
 .color-legend{
@@ -72,10 +81,10 @@ jobs:
 }
 .color-legend .lg-gray{color:#fff}
 '''
-          if 'Ver.39: 卓表右側の顧客区分凡例をフルカラー表示' not in s:
-              if css_anchor not in s:
-                  raise SystemExit('CSS anchor not found')
-              s = s.replace(css_anchor, css_anchor + css_add, 1)
+          if 'Ver.39: 卓表右側の顧客区分凡例をフルカラー表示' not in text:
+              if css_anchor not in text:
+                  raise SystemExit('CSS anchor missing')
+              text = text.replace(css_anchor, css_anchor + css_add, 1)
 
           legend = '''        <div class="color-legend" id="colorLegend" aria-hidden="true">
           <div class="lg t-orange">ご新規様・お連れ様</div>
@@ -88,20 +97,19 @@ jobs:
           <div class="lg t-gray lg-gray">ブラックカード</div>
         </div>
 '''
-          if 'id="colorLegend"' not in s:
+          if 'id="colorLegend"' not in text:
               anchor = '        <button class="hotspot"'
-              if anchor not in s:
-                  raise SystemExit('Legend anchor not found')
-              s = s.replace(anchor, legend + anchor, 1)
+              if anchor not in text:
+                  raise SystemExit('legend anchor missing')
+              text = text.replace(anchor, legend + anchor, 1)
 
-          p.write_text(s, encoding='utf-8')
+          body = json.dumps({
+              'message': 'CASHIER Ver.39 full color',
+              'content': base64.b64encode(text.encode('utf-8')).decode('ascii'),
+              'sha': meta['sha'],
+              'branch': 'main'
+          }).encode('utf-8')
+          put = urllib.request.Request(api, data=body, headers={**headers, 'Content-Type':'application/json'}, method='PUT')
+          with urllib.request.urlopen(put) as r:
+              print(r.status)
           PY
-
-      - name: Commit and push
-        run: |
-          git config user.name "Athena via ChatGPT"
-          git config user.email "actions@users.noreply.github.com"
-          git add index.html
-          git diff --cached --quiet && exit 0
-          git commit -m "CASHIER Ver.39 full color"
-          git push origin main
