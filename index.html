@@ -20,18 +20,18 @@ html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-sys
   try{
     const cacheBust=Date.now();
     const sourceUrl="https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/2e75a08f27775fa5d3c5e1b2b574928509dc09dc/index.html";
-    const patchUrl=`https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/main/v40/patch.txt?v=${cacheBust}`;
+    const partUrls=[1,2,3].map(n=>`https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/main/v40/floor${n}.txt?v=${cacheBust}`);
 
-    const [sourceRes,patchRes]=await Promise.all([
+    const [sourceRes,...partRes]=await Promise.all([
       fetch(sourceUrl,{cache:"no-store"}),
-      fetch(patchUrl,{cache:"no-store"})
+      ...partUrls.map(url=>fetch(url,{cache:"no-store"}))
     ]);
     if(!sourceRes.ok)throw new Error("本体取得 "+sourceRes.status);
-    if(!patchRes.ok)throw new Error("卓表画像取得 "+patchRes.status);
+    partRes.forEach((res,i)=>{if(!res.ok)throw new Error(`卓表区分データ${i+1}取得 ${res.status}`)});
 
     let html=await sourceRes.text();
-    const patchData=(await patchRes.text()).trim();
-    if(!patchData.startsWith("data:image/jpeg;base64,"))throw new Error("卓表画像データが不正です");
+    const parts=await Promise.all(partRes.map(res=>res.text()));
+    const patchData="data:image/jpeg;base64,"+parts.map(v=>v.trim()).join("");
 
     const replaceOnce=(from,to)=>{
       if(!html.includes(from))throw new Error("更新箇所が見つかりません");
