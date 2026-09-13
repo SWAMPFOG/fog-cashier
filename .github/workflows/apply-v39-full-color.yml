@@ -1,0 +1,107 @@
+name: Apply CASHIER v39 full color
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-v39-full-color.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Apply Ver.39 full-color patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          replacements = [
+              ('<meta name="fog-cashier-version" content="38">', '<meta name="fog-cashier-version" content="39">'),
+              ('<title>SWAMP FOG CASHIER v38 REALTIME</title>', '<title>SWAMP FOG CASHIER v39 REALTIME</title>'),
+              ('<span class="app-ver">Ver.38</span>', '<span class="app-ver">Ver.39</span>'),
+              ('alt="SWAMP FOG 卓表 Ver.38"', 'alt="SWAMP FOG 卓表 Ver.39"'),
+              ('const APP_VERSION="38";', 'const APP_VERSION="39";'),
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'Expected text not found: {old}')
+              s = s.replace(old, new, 1)
+
+          css_anchor = '''.hotspot{
+  transform:none;
+}
+'''
+          css_add = '''
+/* Ver.39: 卓表右側の顧客区分凡例をフルカラー表示 */
+.color-legend{
+  position:absolute;
+  left:73.55%;
+  top:11.65%;
+  width:22.95%;
+  height:22.45%;
+  z-index:1;
+  display:grid;
+  grid-template-rows:repeat(8,1fr);
+  gap:1.2%;
+  padding:1.45% 1.7%;
+  background:#fff;
+  border:1.2px solid #aaa;
+  border-radius:34% / 18%;
+  pointer-events:none;
+}
+.color-legend .lg{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:0;
+  border-radius:999px;
+  color:#111;
+  font-size:clamp(5.5px,.68vw,9px);
+  font-weight:800;
+  line-height:1;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.color-legend .lg-gray{color:#fff}
+'''
+          if 'Ver.39: 卓表右側の顧客区分凡例をフルカラー表示' not in s:
+              if css_anchor not in s:
+                  raise SystemExit('CSS anchor not found')
+              s = s.replace(css_anchor, css_anchor + css_add, 1)
+
+          legend = '''        <div class="color-legend" id="colorLegend" aria-hidden="true">
+          <div class="lg t-orange">ご新規様・お連れ様</div>
+          <div class="lg t-pink">初回指名・リピート</div>
+          <div class="lg t-green">場内指名</div>
+          <div class="lg t-blue">2リピ</div>
+          <div class="lg t-purple">クイック</div>
+          <div class="lg t-yellow">光アイスペール</div>
+          <div class="lg t-red">ゴールドカード</div>
+          <div class="lg t-gray lg-gray">ブラックカード</div>
+        </div>
+'''
+          if 'id="colorLegend"' not in s:
+              anchor = '        <button class="hotspot"'
+              if anchor not in s:
+                  raise SystemExit('Legend anchor not found')
+              s = s.replace(anchor, legend + anchor, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit and push
+        run: |
+          git config user.name "Athena via ChatGPT"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "CASHIER Ver.39 full color"
+          git push origin main
