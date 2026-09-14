@@ -4,27 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<title>SWAMP FOG CASHIER Ver.40</title>
+<title>SWAMP FOG CASHIER Ver.41</title>
 <style>
 html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif}
 #loading{height:100%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#222}
 </style>
 </head>
 <body>
-<div id="loading">SWAMP FOG CASHIER Ver.40 読み込み中…</div>
+<div id="loading">SWAMP FOG CASHIER Ver.41 読み込み中…</div>
 <script>
+(()=>{
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("./sw.js",{scope:"./"}).catch(err=>console.warn("offline cache",err));
+  }
+})();
+
 (async()=>{
   try{
-    const cacheBust=Date.now();
     const sourceUrl="https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/2e75a08f27775fa5d3c5e1b2b574928509dc09dc/index.html";
-    const partUrls=[1,2,3,4,5,6,7].map(n=>`https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/main/v40/floor${n}.txt?v=${cacheBust}`);
+    const partUrls=[1,2,3,4,5,6,7].map(n=>`https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/main/v40/floor${n}.txt`);
 
     const [sourceRes,...partRes]=await Promise.all([
-      fetch(sourceUrl,{cache:"no-store"}),
-      ...partUrls.map(url=>fetch(url,{cache:"no-store"}))
+      fetch(sourceUrl),
+      ...partUrls.map(url=>fetch(url))
     ]);
     if(!sourceRes.ok)throw new Error("本体取得 "+sourceRes.status);
     partRes.forEach((res,i)=>{if(!res.ok)throw new Error(`卓表区分データ${i+1}取得 ${res.status}`)});
@@ -40,18 +42,83 @@ html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-sys
       html=html.replace(from,to);
     };
 
-    replaceOnce('<meta name="fog-cashier-version" content="38">','<meta name="fog-cashier-version" content="40">');
-    replaceOnce('<title>SWAMP FOG CASHIER v38 REALTIME</title>','<title>SWAMP FOG CASHIER v40 REALTIME</title>');
-    replaceOnce('<span class="app-ver">Ver.38</span>','<span class="app-ver">Ver.40</span>');
-    replaceOnce('const APP_VERSION="38";','const APP_VERSION="40";');
+    replaceOnce('<meta name="fog-cashier-version" content="38">','<meta name="fog-cashier-version" content="41">');
+    replaceOnce('<title>SWAMP FOG CASHIER v38 REALTIME</title>','<title>SWAMP FOG CASHIER v41 OFFLINE</title>');
+    replaceOnce('<span class="app-ver">Ver.38</span>','<span class="app-ver">Ver.41</span>');
+    replaceOnce('const APP_VERSION="38";','const APP_VERSION="41";');
 
     const floorImgPattern=/(<img id="floorImg" src="[^"]+" alt="SWAMP FOG 卓表 Ver\.38">)/;
     if(!floorImgPattern.test(html))throw new Error("卓表画像の位置が見つかりません");
-
     html=html.replace(floorImgPattern,(m)=>
-      m.replace('Ver.38','Ver.40')+
-      `<img id="floorPatch40" src="${patchData}" alt="" aria-hidden="true" style="position:absolute;left:73.484848%;top:10.942761%;width:24.090909%;height:25.533109%;object-fit:fill;pointer-events:none;user-select:none;z-index:1">`
+      m.replace('Ver.38','Ver.41')+
+      `<img id="floorPatch41" src="${patchData}" alt="" aria-hidden="true" style="position:absolute;left:73.484848%;top:10.942761%;width:24.090909%;height:25.533109%;object-fit:fill;pointer-events:none;user-select:none;z-index:1">`
     );
+
+    const oldBoot='renderAll();\nbootstrapRealtime();';
+    const newBoot=`renderAll();
+
+const OFFLINE_BASE_KEY="fog_cashier_v41_offline_base";
+let offlineReconnectBusy=false;
+
+function enterOfflineMode(){
+  try{
+    if(!localStorage.getItem(OFFLINE_BASE_KEY)){
+      localStorage.setItem(OFFLINE_BASE_KEY,JSON.stringify(syncPayload()));
+    }
+  }catch(e){console.warn("offline base",e)}
+  syncReady=false;
+  stopFallbackPolling();
+  clearTimeout(realtimeRetryTimer);
+  hideSyncLogin();
+  setSyncStatus("オフライン","error");
+}
+
+async function reconnectV41(){
+  if(offlineReconnectBusy)return;
+  offlineReconnectBusy=true;
+  try{
+    const baseRaw=localStorage.getItem(OFFLINE_BASE_KEY);
+    const localBefore=baseRaw?deepClone(syncPayload()):null;
+    const localHistory=deepClone(db.history||[]);
+
+    await bootstrapRealtime();
+    if(!syncReady){
+      if(!navigator.onLine)enterOfflineMode();
+      return;
+    }
+
+    if(baseRaw&&localBefore){
+      const base=JSON.parse(baseRaw);
+      const remoteNow=deepClone(syncPayload());
+      const merged=mergeLocalDelta(base,localBefore,remoteNow);
+      db=Object.assign(defaultDB(),deepClone(merged));
+      db.history=localHistory;
+      persistLocalOnly();
+      renderAll();
+      localDirty=true;
+      await flushRemoteSave();
+      if(!localDirty&&syncReady)localStorage.removeItem(OFFLINE_BASE_KEY);
+    }
+  }catch(e){
+    console.error("offline reconnect",e);
+    enterOfflineMode();
+  }finally{
+    offlineReconnectBusy=false;
+  }
+}
+
+window.addEventListener("offline",()=>{
+  enterOfflineMode();
+  toast("オフライン：この端末に保存します");
+});
+window.addEventListener("online",()=>{
+  setSyncStatus("再接続中","busy");
+  reconnectV41();
+});
+
+if(navigator.onLine)reconnectV41();
+else enterOfflineMode();`;
+    replaceOnce(oldBoot,newBoot);
 
     document.open();
     document.write(html);
