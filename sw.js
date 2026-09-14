@@ -1,4 +1,4 @@
-const CACHE_NAME="fog-cashier-v41-core-1";
+const CACHE_NAME="fog-cashier-v41-core-2";
 const SOURCE_URL="https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/2e75a08f27775fa5d3c5e1b2b574928509dc09dc/index.html";
 const PART_URLS=[1,2,3,4,5,6,7].map(n=>`https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/main/v40/floor${n}.txt`);
 const SUPABASE_JS="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
@@ -7,11 +7,10 @@ const CORE=["./","./index.html",SOURCE_URL,...PART_URLS,SUPABASE_JS];
 self.addEventListener("install",event=>{
   event.waitUntil((async()=>{
     const cache=await caches.open(CACHE_NAME);
-    await Promise.allSettled(CORE.map(async url=>{
-      try{
-        const res=await fetch(url,{cache:"reload"});
-        if(res.ok||res.type==="opaque")await cache.put(url,res.clone());
-      }catch(_){ }
+    await Promise.all(CORE.map(async url=>{
+      const res=await fetch(url,{cache:"reload"});
+      if(!(res.ok||res.type==="opaque"))throw new Error(`cache failed: ${url}`);
+      await cache.put(url,res.clone());
     }));
     await self.skipWaiting();
   })());
