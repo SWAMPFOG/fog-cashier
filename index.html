@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
-<title>SWAMP FOG CASHIER Ver.41</title>
+<title>SWAMP FOG CASHIER Ver.42</title>
 <style>
 html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif}
 #loading{height:100%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#222}
 </style>
 </head>
 <body>
-<div id="loading">SWAMP FOG CASHIER Ver.41 読み込み中…</div>
+<div id="loading">SWAMP FOG CASHIER Ver.42 読み込み中…</div>
 <script>
 (()=>{
   if("serviceWorker" in navigator){
@@ -42,16 +42,16 @@ html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-sys
       html=html.replace(from,to);
     };
 
-    replaceOnce('<meta name="fog-cashier-version" content="38">','<meta name="fog-cashier-version" content="41">');
-    replaceOnce('<title>SWAMP FOG CASHIER v38 REALTIME</title>','<title>SWAMP FOG CASHIER v41 OFFLINE</title>');
-    replaceOnce('<span class="app-ver">Ver.38</span>','<span class="app-ver">Ver.41</span>');
-    replaceOnce('const APP_VERSION="38";','const APP_VERSION="41";');
+    replaceOnce('<meta name="fog-cashier-version" content="38">','<meta name="fog-cashier-version" content="42">');
+    replaceOnce('<title>SWAMP FOG CASHIER v38 REALTIME</title>','<title>SWAMP FOG CASHIER v42 OFFLINE</title>');
+    replaceOnce('<span class="app-ver">Ver.38</span>','<span class="app-ver">Ver.42</span>');
+    replaceOnce('const APP_VERSION="38";','const APP_VERSION="42";');
 
     const floorImgPattern=/(<img id="floorImg" src="[^"]+" alt="SWAMP FOG 卓表 Ver\.38">)/;
     if(!floorImgPattern.test(html))throw new Error("卓表画像の位置が見つかりません");
     html=html.replace(floorImgPattern,(m)=>
-      m.replace('Ver.38','Ver.41')+
-      `<img id="floorPatch41" src="${patchData}" alt="" aria-hidden="true" style="position:absolute;left:73.484848%;top:10.942761%;width:24.090909%;height:25.533109%;object-fit:fill;pointer-events:none;user-select:none;z-index:1">`
+      m.replace('Ver.38','Ver.42')+
+      `<img id="floorPatch42" src="${patchData}" alt="" aria-hidden="true" style="position:absolute;left:73.484848%;top:10.942761%;width:24.090909%;height:25.533109%;object-fit:fill;pointer-events:none;user-select:none;z-index:1">`
     );
 
     const oldLogin='hideSyncLogin();\n  await connectRealtimeSync()\n}\nasync function cashierLogout()';
@@ -135,6 +135,8 @@ window.addEventListener("online",()=>{
 if(navigator.onLine)reconnectV41();
 else enterOfflineMode();`;
     replaceOnce(oldBoot,newBoot);
+
+    html=html.replace('</body>','<script src="./client-color.js"></scr'+'ipt></body>');
 
     document.open();
     document.write(html);
