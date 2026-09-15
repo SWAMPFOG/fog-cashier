@@ -1,11 +1,26 @@
-/* FOG CASHIER Ver.44 operational enhancements */
+/* FOG CASHIER Ver.45 operational enhancements */
 (()=>{
   const style=document.createElement('style');
   style.textContent=`
+    /* Ver.45: 卓表を上寄せしてスクショ内の無駄な余白を減らす */
+    .board-wrap{align-items:flex-start!important}
+
+    /* 卓番号と同じ上段に固定する運用マーク */
     .fog-ops-marks{position:absolute;right:2px;top:1px;z-index:12;display:flex;gap:2px;align-items:center;pointer-events:none}
-    .fog-ops-mark{min-width:16px;height:16px;padding:0 3px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:clamp(8px,.78vw,11px);line-height:1;font-weight:950;color:#111;background:#fff;border:1px solid #111;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+    .fog-ops-mark{min-width:14px;height:14px;padding:0 2px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:clamp(7px,.68vw,9.5px);line-height:1;font-weight:950;color:#111;background:#fff;border:1px solid #111;box-shadow:0 1px 1px rgba(0,0,0,.08)}
     .fog-ops-mark.up{background:#fff3b0}.fog-ops-mark.down{background:#d9efff}.fog-ops-mark.nohelp{background:#ffd7d7;color:#9c1111;border-color:#9c1111}
-    .fog-new-plan{flex:0 0 auto;border:1px solid #111;border-radius:5px;padding:1px 4px;background:#111;color:#fff;font-size:clamp(7px,.72vw,10px);line-height:1.05;font-weight:950;white-space:nowrap;letter-spacing:-.02em}
+
+    /* 情報を4段に分離：キャスト / クライアント / プラン / 時間 */
+    .names-block{height:66%}
+    .client-list-line{top:43%;align-items:flex-start}
+    .overlay.fog-multi-client .client-list-line{top:33%;flex-direction:column;align-items:flex-start;gap:1px;white-space:normal;overflow:visible}
+    .overlay.fog-multi-client .client-chip{max-width:100%;padding:1px 4px;font-size:clamp(6.5px,.72vw,10px);line-height:1}
+    .table-meta{height:18%;z-index:7}
+    .ov-time{overflow:visible;text-overflow:clip;white-space:nowrap;padding-right:0}
+
+    /* 初回プランは時間と横並びにせず、1段上へ固定 */
+    .fog-new-plan{position:absolute;right:2px;bottom:19%;z-index:9;max-width:64%;border:1px solid #111;border-radius:4px;padding:1px 4px;background:#111;color:#fff;font-size:clamp(6.5px,.66vw,9px);line-height:1.05;font-weight:950;white-space:nowrap;letter-spacing:-.03em;pointer-events:none}
+
     .fog-mark-panel{margin-top:10px;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fafaf8}
     .fog-mark-panel-title{font-size:11px;font-weight:900;color:#666;margin-bottom:7px}.fog-mark-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
     .fog-mark-btn{border:1px solid #c9c9c3;background:#fff;border-radius:8px;padding:9px 5px;font-size:12px;font-weight:900}.fog-mark-btn.active{background:#111;color:#fff;border-color:#111}
@@ -17,15 +32,31 @@
     catch(_){return s?.baseType||s?.type||''}
   }
 
+  function refitClientChip(el){
+    if(!el)return;
+    el.style.fontSize='';
+    let px=parseFloat(getComputedStyle(el).fontSize)||10;
+    let guard=0;
+    while(el.scrollWidth>el.clientWidth+1&&px>6&&guard<20){
+      px-=0.5;
+      el.style.fontSize=px+'px';
+      guard++;
+    }
+  }
+
   function decorateCashierTables(){
     if(typeof db==='undefined')return;
     document.querySelectorAll('.hotspot').forEach(h=>{
       const table=h.dataset.table;
       const s=db.tables?.[table];
       const ov=document.getElementById('ov-'+table);
+
+      h.querySelector('.fog-ops-marks')?.remove();
+      if(ov){
+        ov.querySelector('.fog-new-plan')?.remove();
+        ov.classList.remove('fog-multi-client');
+      }
       if(!ov||!s||s.state==='cleaning')return;
-      ov.querySelector('.fog-ops-marks')?.remove();
-      ov.querySelector('.fog-new-plan')?.remove();
 
       const marks=[];
       if(s.opsUp)marks.push('<span class="fog-ops-mark up" title="上げ">↑</span>');
@@ -35,26 +66,26 @@
         const wrap=document.createElement('div');
         wrap.className='fog-ops-marks';
         wrap.innerHTML=marks.join('');
-        ov.appendChild(wrap);
+        h.appendChild(wrap);
       }
 
+      const chips=[...ov.querySelectorAll('.client-chip')];
+      if(chips.length>1)ov.classList.add('fog-multi-client');
+      chips.forEach(refitClientChip);
+
       if(tableSessionType(s)==='new'&&s.newPlan){
-        const meta=ov.querySelector('.table-meta');
-        if(meta){
-          const plan=document.createElement('div');
-          plan.className='fog-new-plan';
-          plan.textContent=(s.newPlan==='VIP'?'VIP':String(s.newPlan))+'プラン';
-          const crown=meta.querySelector('.crown');
-          if(crown)meta.insertBefore(plan,crown);else meta.appendChild(plan);
-        }
+        const plan=document.createElement('div');
+        plan.className='fog-new-plan';
+        plan.textContent=String(s.newPlan)+'プラン';
+        ov.appendChild(plan);
       }
     });
   }
 
-  if(typeof renderTables==='function'&&!window.__fogV44TablesWrapped){
+  if(typeof renderTables==='function'&&!window.__fogV45TablesWrapped){
     const originalRenderTables=renderTables;
     renderTables=function(){const result=originalRenderTables.apply(this,arguments);decorateCashierTables();return result};
-    window.__fogV44TablesWrapped=true;
+    window.__fogV45TablesWrapped=true;
   }
 
   function markLabel(s,key){
@@ -83,10 +114,10 @@
     if(firstActions)firstActions.parentNode.insertBefore(panel,firstActions);else card.insertBefore(panel,cardActions);
   }
 
-  if(typeof openTable==='function'&&!window.__fogV44OpenTableWrapped){
+  if(typeof openTable==='function'&&!window.__fogV45OpenTableWrapped){
     const originalOpenTable=openTable;
     openTable=function(table){const result=originalOpenTable.apply(this,arguments);try{decorateTableModal(table)}catch(e){console.warn('mark modal',e)}return result};
-    window.__fogV44OpenTableWrapped=true;
+    window.__fogV45OpenTableWrapped=true;
   }
 
   window.toggleFogOpsMark=function(table,key){
@@ -99,7 +130,8 @@
     if(typeof openTable==='function')openTable(table);
   };
 
-  if(typeof assignReservation==='function'&&!window.__fogV44AssignWrapped){
+  /* 予定表で未登録の名前・区分を卓表へそのまま保持 */
+  if(typeof assignReservation==='function'&&!window.__fogV45AssignWrapped){
     const originalAssignReservation=assignReservation;
     assignReservation=function(id){
       const r=(db.reservations||[]).find(x=>x&&x.id===id);
@@ -119,7 +151,7 @@
       }
       return result;
     };
-    window.__fogV44AssignWrapped=true;
+    window.__fogV45AssignWrapped=true;
   }
 
   decorateCashierTables();
