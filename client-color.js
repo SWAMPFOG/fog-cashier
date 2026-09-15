@@ -95,3 +95,11 @@ if(typeof renderSchedule==="function"&&!window.__fogScheduleColorWrapped){
 }
 
 decorateScheduleClientColors();
+
+if(!window.__fogV44EnhancementLoader){
+  const enhancementScript=document.createElement("script");
+  enhancementScript.src="./cashier-enhancements.js";
+  enhancementScript.defer=false;
+  document.body.appendChild(enhancementScript);
+  window.__fogV44EnhancementLoader=true;
+}
