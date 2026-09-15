@@ -103,3 +103,7 @@ if(!window.__fogV44EnhancementLoader){
   document.body.appendChild(enhancementScript);
   window.__fogV44EnhancementLoader=true;
 }
+
+const fogVersionBadge=document.querySelector(".app-ver");
+if(fogVersionBadge)fogVersionBadge.textContent="Ver.44";
+document.title="SWAMP FOG CASHIER v44 OFFLINE";
