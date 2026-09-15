@@ -96,14 +96,14 @@ if(typeof renderSchedule==="function"&&!window.__fogScheduleColorWrapped){
 
 decorateScheduleClientColors();
 
-if(!window.__fogV46EnhancementLoader){
+if(!window.__fogV47EnhancementLoader){
   const enhancementScript=document.createElement("script");
-  enhancementScript.src="./cashier-enhancements.js";
+  enhancementScript.src="./cashier-enhancements-v47.js";
   enhancementScript.defer=false;
   document.body.appendChild(enhancementScript);
-  window.__fogV46EnhancementLoader=true;
+  window.__fogV47EnhancementLoader=true;
 }
 
 const fogVersionBadge=document.querySelector(".app-ver");
-if(fogVersionBadge)fogVersionBadge.textContent="Ver.46";
-document.title="SWAMP FOG CASHIER v46 OFFLINE";
+if(fogVersionBadge)fogVersionBadge.textContent="Ver.47";
+document.title="SWAMP FOG CASHIER v47 OFFLINE";
