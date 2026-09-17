@@ -96,12 +96,25 @@ if(typeof renderSchedule==="function"&&!window.__fogScheduleColorWrapped){
 
 decorateScheduleClientColors();
 
+function loadFogOpsV48(){
+  if(window.__fogOpsV48Loader)return;
+  const opsScript=document.createElement("script");
+  opsScript.src="./cashier-ops-v48.js";
+  opsScript.defer=false;
+  document.body.appendChild(opsScript);
+  window.__fogOpsV48Loader=true;
+}
+
 if(!window.__fogV47EnhancementLoader){
   const enhancementScript=document.createElement("script");
   enhancementScript.src="./cashier-enhancements-v47.js";
   enhancementScript.defer=false;
+  enhancementScript.onload=loadFogOpsV48;
+  enhancementScript.onerror=loadFogOpsV48;
   document.body.appendChild(enhancementScript);
   window.__fogV47EnhancementLoader=true;
+}else{
+  loadFogOpsV48();
 }
 
 const fogVersionBadge=document.querySelector(".app-ver");
