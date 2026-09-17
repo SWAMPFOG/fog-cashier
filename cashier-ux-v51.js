@@ -26,10 +26,18 @@
   document.head.appendChild(style);
 
   function getOnclick(btn){return btn?.getAttribute('onclick')||''}
+  function fastRank(btn){
+    const oc=getOnclick(btn);
+    if(oc.includes('openFieldConvert('))return 1;
+    if(oc.includes('toggleCheck('))return 2;
+    if(oc.includes('askStartTableMove('))return 3;
+    if(oc.includes('checkout('))return 4;
+    return 99;
+  }
 
   function decorateOccupiedTable(table){
     const card=document.getElementById('modalCard');
-    const s=window.db?.tables?.[table];
+    const s=(typeof db!=='undefined'&&db?.tables)?db.tables[table]:null;
     if(!card||!s||s.state==='cleaning')return;
     if(card.querySelector('.fog-fast-section'))return;
 
@@ -44,10 +52,10 @@
     const fast=[];
     const other=[];
     buttons.forEach(btn=>{
-      const oc=getOnclick(btn);
-      if(oc.includes('openFieldConvert(')||oc.includes('toggleCheck(')||oc.includes('askStartTableMove(')||oc.includes('checkout(')) fast.push(btn);
+      if(fastRank(btn)<99)fast.push(btn);
       else other.push(btn);
     });
+    fast.sort((a,b)=>fastRank(a)-fastRank(b));
     if(!fast.length)return;
 
     const section=document.createElement('div');
