@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>FOG CASHIER Ver.50 Update</title>
+<style>
+html,body{margin:0;width:100%;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif;background:#fff;color:#111}
+main{height:100%;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
+.card{max-width:520px;width:100%;text-align:center}
+h1{font-size:22px;margin:0 0 12px}.msg{font-size:14px;color:#555;line-height:1.7}.small{margin-top:16px;font-size:11px;color:#888}
+</style>
+</head>
+<body>
+<main><div class="card"><h1>FOG CASHIER Ver.50へ更新中</h1><div class="msg" id="msg">旧キャッシュを解除しています。画面を閉じずにお待ちください。</div><div class="small">完了後、自動でFOG CASHIERを開きます。</div></div></main>
+<script>
+(async()=>{
+  const msg=document.getElementById('msg');
+  try{
+    if('serviceWorker' in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.filter(r=>String(r.scope||'').includes('/fog-cashier/')).map(r=>r.unregister()));
+    }
+    if('caches' in window){
+      const keys=await caches.keys();
+      await Promise.all(keys.filter(k=>k.startsWith('fog-cashier-')).map(k=>caches.delete(k)));
+    }
+    try{localStorage.setItem('fog_cashier_force_version','50')}catch(_){ }
+    msg.textContent='更新準備が完了しました。Ver.50を開きます。';
+    setTimeout(()=>location.replace('./?v=50-force-20260917'),500);
+  }catch(e){
+    console.error(e);
+    msg.textContent='更新ページを再読み込みしてください。';
+  }
+})();
+</script>
+</body>
+</html>
