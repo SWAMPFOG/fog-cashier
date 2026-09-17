@@ -1,8 +1,8 @@
-const CACHE_NAME="fog-cashier-v49-core-2";
+const CACHE_NAME="fog-cashier-v50-core-1";
 const SOURCE_URL="https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/2e75a08f27775fa5d3c5e1b2b574928509dc09dc/index.html";
 const PART_URLS=[1,2,3,4,5,6,7].map(n=>`https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/main/v40/floor${n}.txt`);
 const SUPABASE_JS="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
-const CORE=["./","./index.html","./client-color.js","./cashier-enhancements-v47.js","./cashier-ops-v48.js","./cashier-schedule-v49.js",SOURCE_URL,...PART_URLS,SUPABASE_JS];
+const CORE=["./","./index.html","./client-color.js?v=50","./cashier-enhancements-v47.js?v=50","./cashier-ops-v48.js?v=50","./cashier-schedule-v50.js?v=50",SOURCE_URL,...PART_URLS,SUPABASE_JS];
 
 self.addEventListener("install",event=>{
   event.waitUntil((async()=>{
