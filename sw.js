@@ -1,4 +1,4 @@
-const CACHE_NAME="fog-cashier-v51-core-1";
+const CACHE_NAME="fog-cashier-v51-core-2";
 const SOURCE_URL="https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/2e75a08f27775fa5d3c5e1b2b574928509dc09dc/index.html";
 const PART_URLS=[1,2,3,4,5,6,7].map(n=>`https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/main/v40/floor${n}.txt`);
 const SUPABASE_JS="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
@@ -53,13 +53,17 @@ self.addEventListener("fetch",event=>{
   if(!isCore)return;
 
   event.respondWith((async()=>{
-    const cached=await caches.match(key);
-    if(cached)return cached;
-    const fresh=await fetch(req,{cache:"reload"});
-    if(fresh.ok||fresh.type==="opaque"){
-      const cache=await caches.open(CACHE_NAME);
-      cache.put(key,fresh.clone()).catch(()=>{});
+    try{
+      const fresh=await fetch(req,{cache:"no-store"});
+      if(fresh.ok||fresh.type==="opaque"){
+        const cache=await caches.open(CACHE_NAME);
+        cache.put(key,fresh.clone()).catch(()=>{});
+      }
+      return fresh;
+    }catch(_){
+      const cached=await caches.match(key);
+      if(cached)return cached;
+      throw _;
     }
-    return fresh;
   })());
 });
