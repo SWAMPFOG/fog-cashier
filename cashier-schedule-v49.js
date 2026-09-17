@@ -18,6 +18,19 @@
 
   const normName=value=>String(value||'').normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 
+  if(typeof reservationTimeOptions==='function'&&!window.__fogV49TimeOptionsWrapped){
+    const originalReservationTimeOptions=reservationTimeOptions;
+    reservationTimeOptions=function(selected='20:00'){
+      let html=originalReservationTimeOptions(selected);
+      html=html.replace('>未定（旧設定）<','>未定<');
+      if(!html.includes('value="未定"')){
+        html=`<option value="未定" ${selected==='未定'?'selected':''}>未定</option>`+html;
+      }
+      return html;
+    };
+    window.__fogV49TimeOptionsWrapped=true;
+  }
+
   function sameNameClient(castId,name,excludeId=''){
     const key=normName(name);
     if(!castId||!key)return null;
