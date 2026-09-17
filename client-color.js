@@ -96,32 +96,32 @@ if(typeof renderSchedule==="function"&&!window.__fogScheduleColorWrapped){
 
 decorateScheduleClientColors();
 
-function loadFogScheduleV49(){
-  if(window.__fogScheduleV49Loader)return;
+function loadFogScheduleV50(){
+  if(window.__fogScheduleV50Loader)return;
   const scheduleScript=document.createElement("script");
-  scheduleScript.src="./cashier-schedule-v49.js";
+  scheduleScript.src="./cashier-schedule-v50.js?v=50";
   scheduleScript.defer=false;
   document.body.appendChild(scheduleScript);
-  window.__fogScheduleV49Loader=true;
+  window.__fogScheduleV50Loader=true;
 }
 
 function loadFogOpsV48(){
   if(window.__fogOpsV48Loader){
-    loadFogScheduleV49();
+    loadFogScheduleV50();
     return;
   }
   const opsScript=document.createElement("script");
-  opsScript.src="./cashier-ops-v48.js";
+  opsScript.src="./cashier-ops-v48.js?v=50";
   opsScript.defer=false;
-  opsScript.onload=loadFogScheduleV49;
-  opsScript.onerror=loadFogScheduleV49;
+  opsScript.onload=loadFogScheduleV50;
+  opsScript.onerror=loadFogScheduleV50;
   document.body.appendChild(opsScript);
   window.__fogOpsV48Loader=true;
 }
 
 if(!window.__fogV47EnhancementLoader){
   const enhancementScript=document.createElement("script");
-  enhancementScript.src="./cashier-enhancements-v47.js";
+  enhancementScript.src="./cashier-enhancements-v47.js?v=50";
   enhancementScript.defer=false;
   enhancementScript.onload=loadFogOpsV48;
   enhancementScript.onerror=loadFogOpsV48;
@@ -132,5 +132,5 @@ if(!window.__fogV47EnhancementLoader){
 }
 
 const fogVersionBadge=document.querySelector(".app-ver");
-if(fogVersionBadge)fogVersionBadge.textContent="Ver.49";
-document.title="SWAMP FOG CASHIER v49 OFFLINE";
+if(fogVersionBadge)fogVersionBadge.textContent="Ver.50";
+document.title="SWAMP FOG CASHIER v50 OFFLINE";
