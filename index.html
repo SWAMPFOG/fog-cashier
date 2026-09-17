@@ -4,18 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
-<title>SWAMP FOG CASHIER Ver.50</title>
+<title>SWAMP FOG CASHIER Ver.51</title>
 <style>
 html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif}
 #loading{height:100%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#222}
 </style>
 </head>
 <body>
-<div id="loading">SWAMP FOG CASHIER Ver.50 読み込み中…</div>
+<div id="loading">SWAMP FOG CASHIER Ver.51 読み込み中…</div>
 <script>
-(()=>{
+(async()=>{
   if("serviceWorker" in navigator){
-    navigator.serviceWorker.register("./sw.js?v=50",{scope:"./"}).catch(err=>console.warn("offline cache",err));
+    try{
+      const reg=await navigator.serviceWorker.register("./sw.js?v=51",{scope:"./",updateViaCache:"none"});
+      reg.update().catch(()=>{});
+    }catch(err){console.warn("offline cache",err)}
   }
 })();
 
@@ -25,8 +28,8 @@ html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-sys
     const partUrls=[1,2,3,4,5,6,7].map(n=>`https://raw.githubusercontent.com/SWAMPFOG/fog-cashier/main/v40/floor${n}.txt`);
 
     const [sourceRes,...partRes]=await Promise.all([
-      fetch(sourceUrl),
-      ...partUrls.map(url=>fetch(url))
+      fetch(sourceUrl,{cache:"no-store"}),
+      ...partUrls.map(url=>fetch(url,{cache:"no-store"}))
     ]);
     if(!sourceRes.ok)throw new Error("本体取得 "+sourceRes.status);
     partRes.forEach((res,i)=>{if(!res.ok)throw new Error(`卓表区分データ${i+1}取得 ${res.status}`)});
@@ -42,15 +45,15 @@ html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-sys
       html=html.replace(from,to);
     };
 
-    replaceOnce('<meta name="fog-cashier-version" content="38">','<meta name="fog-cashier-version" content="50">');
-    replaceOnce('<title>SWAMP FOG CASHIER v38 REALTIME</title>','<title>SWAMP FOG CASHIER v50 OFFLINE</title>');
-    replaceOnce('<span class="app-ver">Ver.38</span>','<span class="app-ver">Ver.50</span>');
-    replaceOnce('const APP_VERSION="38";','const APP_VERSION="50";');
+    replaceOnce('<meta name="fog-cashier-version" content="38">','<meta name="fog-cashier-version" content="51">');
+    replaceOnce('<title>SWAMP FOG CASHIER v38 REALTIME</title>','<title>SWAMP FOG CASHIER v51 OFFLINE</title>');
+    replaceOnce('<span class="app-ver">Ver.38</span>','<span class="app-ver">Ver.51</span>');
+    replaceOnce('const APP_VERSION="38";','const APP_VERSION="51";');
 
     const floorImgPattern=/(<img id="floorImg" src="[^"]+" alt="SWAMP FOG 卓表 Ver\.38">)/;
     if(!floorImgPattern.test(html))throw new Error("卓表画像の位置が見つかりません");
     html=html.replace(floorImgPattern,(m)=>
-      m.replace('Ver.38','Ver.50')+
+      m.replace('Ver.38','Ver.51')+
       `<img id="floorPatch43" src="${patchData}" alt="" aria-hidden="true" style="position:absolute;left:73.484848%;top:10.942761%;width:24.090909%;height:25.533109%;object-fit:fill;pointer-events:none;user-select:none;z-index:1">`
     );
 
@@ -136,7 +139,7 @@ if(navigator.onLine)reconnectV41();
 else enterOfflineMode();`;
     replaceOnce(oldBoot,newBoot);
 
-    html=html.replace('</body>','<script src="./client-color.js?v=50"></scr'+'ipt></body>');
+    html=html.replace('</body>','<script src="./client-color-v51.js?v=51"></scr'+'ipt></body>');
 
     document.open();
     document.write(html);
