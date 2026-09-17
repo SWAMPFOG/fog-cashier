@@ -16,7 +16,7 @@ html,body{margin:0;width:100%;height:100%;background:#fff;font-family:-apple-sys
 (async()=>{
   if("serviceWorker" in navigator){
     try{
-      const reg=await navigator.serviceWorker.register("./sw.js?v=51",{scope:"./",updateViaCache:"none"});
+      const reg=await navigator.serviceWorker.register("./sw.js?v=51-2",{scope:"./",updateViaCache:"none"});
       reg.update().catch(()=>{});
     }catch(err){console.warn("offline cache",err)}
   }
